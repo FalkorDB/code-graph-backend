@@ -1,4 +1,5 @@
 from typing import Optional
+from typing import List
 
 class Struct():
     """

@@ -1,18 +1,18 @@
 import io
 import os
-from ..utils import *
 from pathlib import Path
-from ...entities import *
-from ...graph import Graph
-from typing import Union, Optional
-from ..analyzer import AbstractAnalyzer
-
+import logging
 import tree_sitter_c as tsc
 from tree_sitter import Language, Parser, Node
+from typing import Optional
+
+from ..utils import *
+from ...entities import *
+from ...graph import Graph
+from ..analyzer import AbstractAnalyzer
 
 C_LANGUAGE = Language(tsc.language())
 
-import logging
 logger = logging.getLogger('code_graph')
 
 class CAnalyzer(AbstractAnalyzer):

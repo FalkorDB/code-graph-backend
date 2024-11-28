@@ -26,4 +26,3 @@ class AbstractAnalyzer(ABC):
         """
 
         pass
-

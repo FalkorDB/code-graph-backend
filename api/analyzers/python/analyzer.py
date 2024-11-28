@@ -222,10 +222,10 @@ class PythonAnalyzer(AbstractAnalyzer):
         """
 
         if path.suffix != '.py':
-            logger.debug(f"Skipping none Python file {path}")
+            logger.debug("Skipping none Python file %s", path)
             return
 
-        logger.info(f"Python Processing {path}")
+        logger.info("Python Processing %s", path)
 
         # Create file entity
         file = File(os.path.dirname(path), path.name, path.suffix)
@@ -281,7 +281,7 @@ class PythonAnalyzer(AbstractAnalyzer):
             logger.warning("Unknown function call pattern")
             return None
 
-        logger.debug(f"callee_name: {callee_name}")
+        logger.debug("callee_name: %s", callee_name)
         return callee_name
 
     def process_call_node(self, caller: Union[Function, File], callee_name: str,
