@@ -1,77 +1,44 @@
-# Python
+# Byte-compiled files
 *.pyc
 *.pyo
 *.pyd
 __pycache__/
-*.env
-.venv/
-env/
+
+# Virtual environments
 venv/
-ENV/
-*.egg-info/
-*.egg
-pip-log.txt
+env/
+.virtualenv/
 
-# Flask
-instance/
-*.sqlite3
-*.db
-*.bak
-instance/config.py
-instance/*.secret
-
-# Environment Variables
-.env
-.env.*
-
-# Logs
-logs/
-*.log
-*.out
-*.err
-
-# Pytest and Coverage
-.pytest_cache/
-.coverage
-.tox/
-nosetests.xml
-coverage.xml
-*.cover
-.cache
-
-# IDEs and Editors
-.vscode/
-.idea/.env
-.vercel
-
-# ignore the .pyc files
-*.pyc
-
-dist/
-# Node (if using npm/yarn for assets)
-node_modules/
-*.lock
-
-# Static assets (if generated)
-static/
-dist/
+# Distribution/build files
 build/
+dist/
+*.egg-info/
+.eggs/
 
-# Docker
-*.pid
-docker-compose.override.yml
+# IDE settings
+.vscode/
+.idea/
+*.swp
 
-# Heroku
-*.buildpacks
-*.env.local
-*.env.production
-*.env.*.local
+# Logs and debugging
+*.log
+*.trace
 
-# Miscellaneous
-*.bak
-*.tmp
-*.log.*
+# OS-specific files
+.DS_Store
 Thumbs.db
 
-# Vercel
+# Testing and coverage
+htmlcov/
+*.cover
+.coverage
+.cache/
+pytest_cache/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Custom settings
+.env
+*.sqlite3
 .vercel

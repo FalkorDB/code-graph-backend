@@ -135,7 +135,7 @@ class SourceAnalyzer():
             # Second pass analysis of the source code
             self.second_pass(ignore, executor)
 
-    def analyze(self, path: str, g: Graph, ignore: Optional[List[str]] = []) -> None:
+    def analyze_local_folder(self, path: str, g: Graph, ignore: Optional[List[str]] = []) -> None:
         """
         Analyze path.
 
@@ -143,6 +143,8 @@ class SourceAnalyzer():
             path (str): Path to a local folder containing source files to process
             ignore (List(str)): List of paths to skip
         """
+
+        logging.info(f"Analyzing local folder {path}")
 
         # Save original working directory for later restore
         original_dir = Path.cwd()
@@ -179,4 +181,4 @@ class SourceAnalyzer():
         self.graph.set_graph_commit(head.hexsha)
 
         return self.graph
-
+    

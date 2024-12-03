@@ -1,6 +1,7 @@
 import os
 import datetime
 from api import *
+from pathlib import Path
 from typing import Optional
 from functools import wraps
 from falkordb import FalkorDB
@@ -309,3 +310,57 @@ def chat():
     response = { 'status': 'success', 'response': answer }
 
     return jsonify(response), 200
+
+@app.route('/analyze_folder', methods=['POST'])
+@token_required  # Apply token authentication decorator
+def analyze_folder():
+    """
+    Endpoint to analyze local source code
+    Expects 'path' and optionally an ignore list.
+
+    Returns:
+        JSON response with status and error message if applicable
+        Status codes:
+            200: Success
+            400: Invalid input
+            500: Internal server error
+    """
+
+    # Get JSON data from the request
+    data = request.get_json()
+
+    # Get query parameters
+    path      = data.get('path')
+    ignore    = data.get('ignore', [])
+
+    # Validate input parameters
+    if not path:
+        logging.error("'path' is missing from the request.")
+        return jsonify({"status": "'path' is required."}), 400
+
+    # Validate path exists and is a directory
+    if not os.path.isdir(path):
+        logging.error(f"Path '{path}' does not exist or is not a directory")
+        return jsonify({"status": "Invalid path: must be an existing directory"}), 400
+
+    # Validate ignore list contains valid paths
+    if not isinstance(ignore, list):
+        logging.error("'ignore' must be a list of paths")
+        return jsonify({"status": "'ignore' must be a list of paths"}), 400
+
+    proj_name = Path(path).name
+
+    # Initialize the graph with the provided project name
+    g = Graph(proj_name)
+
+    # Analyze source code within given folder
+    analyzer = SourceAnalyzer()
+    analyzer.analyze_local_folder(path, g, ignore)
+
+    # Return response
+    response = {
+            'status': 'success',
+            'project': proj_name
+        }
+    return jsonify(response), 200
+
