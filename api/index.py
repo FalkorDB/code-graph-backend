@@ -36,6 +36,34 @@ def token_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+@app.route('/', methods=['GET'])
+def index():
+    """
+    Return a list of all the available routes as HTML response with clickable links.
+    """
+    
+    return """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Falkor Code-Graph-Backend API</title>
+        <link rel="icon" href="https://code-graph.falkordb.com/favicon.ico" type="image/x-icon"/>
+    </head>
+    <body>      
+        <h1>Welcome to the Falkor Code-Graph-Backend API</h1>
+        <h2>Available Routes:</h2>
+        <ul>
+            <li><a href="/graph_entities?repo=repo_name">/graph_entities?repo=repo_name</a></li>
+            <li><a href="/get_neighbors?repo=repo_name&node_id=1">/get_neighbors?repo=repo_name&node_id=1</a></li>
+            <li><a href="/auto_complete">/auto_complete</a></li>
+            <li><a href="/list_repos">/list_repos</a></li>
+            <li><a href="/repo_info">/repo_info</a></li>
+            <li><a href="/find_paths">/find_paths</a></li>
+            <li><a href="/chat">/chat</a></li>
+        </ul>
+    </body>
+    """   
+
 @app.route('/graph_entities', methods=['GET'])
 @token_required  # Apply token authentication decorator
 def graph_entities():
