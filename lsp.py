@@ -1,6 +1,6 @@
 import tqdm
 from pathlib import Path
-from typing import Self
+from typing import Optional, Self
 import tree_sitter_java
 from tree_sitter import Language, Parser, Node, Point, Tree
 from multilspy import SyncLanguageServer
@@ -19,8 +19,8 @@ files = {}
 class Method:
     def __init__(self, node: Node):
         self.node = node
-        self.calls = []
-        self.resolved_calls = set()
+        self.calls: list[Node] = []
+        self.resolved_calls: set[Method] = set()
         self.parent = None
 
     def add_call(self, method: Node):
@@ -31,7 +31,7 @@ class Method:
 
 class Type:
     def __init__(self):
-        self.methods = {}
+        self.methods: dict[Node, Method] = {}
 
     def add_method(self, method: Method):
         method.parent = self
@@ -41,7 +41,7 @@ class File:
     def __init__(self, path: Path, tree: Tree):
         self.path = path
         self.tree = tree
-        self.types = {}
+        self.types: dict[Node, Type] = {}
 
     def add_type(self, type: Type):
         self.parent = self
@@ -50,34 +50,39 @@ class File:
 class Interface(Type):
     def __init__(self, node: Node):
         self.node = node
-        self.extends = []
+        self.extends: list[Interface] = []
         super().__init__()
     
-    def add_extends_interface(self, interface: str):
+    def add_extends_interface(self, interface: Node):
         self.extends.append(interface)
 
 class Class(Type):
     def __init__(self, node: Node):
         self.node = node
-        self.interfaces = []
-        self.resolved_interfaces = []
+        self.interfaces: list[Interface] = []
+        self.resolved_interfaces: list[Interface] = []
+        self.base_class: Optional[Node] = None
+        self.resolved_base_class: Optional[Type] = None
         super().__init__()
     
-    def add_implement_interface(self, interface: str):
+    def add_implement_interface(self, interface: Node):
         self.interfaces.append(interface)
 
     def add_resolved_interface(self, interface: Interface):
         self.resolved_interfaces.append(interface)
 
-    def add_base_class(self, base_class: str):
+    def set_base_class(self, base_class: Node):
         self.base_class = base_class
+
+    def set_resolved_base_class(self, base_class: Self):
+        self.resolved_base_class = base_class
 
 class Enum(Type):
     def __init__(self, node: Node):
         self.node = node
         super().__init__()
 
-def find_parent(node: Node, parent_types: list):
+def find_parent(node: Node, parent_types: list) -> Node:
     while node.type not in parent_types:
         node = node.parent
     return node
@@ -115,7 +120,7 @@ def find_type(node: Node, file: File):
                 base_class_captures = base_class_query.captures(type_dec)
                 if 'base_class' in base_class_captures:
                     base_class = base_class_captures['base_class'][0]
-                    type.add_base_class(base_class)
+                    type.set_base_class(base_class)
             elif type_dec.type == 'interface_declaration':
                 type = Interface(type_dec)
                 query = JAVA_LANGUAGE.query("(extends_interfaces (type_list (type_identifier) @type))?")
@@ -128,32 +133,25 @@ def find_type(node: Node, file: File):
             file.add_type(type)
             find_methods(type_dec, type)
 
-def resolve_call(lsp: SyncLanguageServer, path: Path, call: Node, method: Method):
-    locations = lsp.request_definition(str(path), call.start_point.row, call.start_point.column)
-    for location in locations:
-        path = Path(location['absolutePath'])
-        if path not in files:
-            continue
-        range = location['range']
-        start = range['start']
-        end = range['end']
-        callee_method_dec = files[path].tree.root_node.descendant_for_point_range(Point(start['line'], start['character']), Point(end['line'], end['character']))
-        callee_method_dec = find_parent(callee_method_dec, ['method_declaration', 'constructor_declaration', 'field_declaration', 'enum_declaration', 'interface_declaration', 'class_declaration'])
-        if callee_method_dec.type in ['field_declaration', 'enum_declaration', 'interface_declaration', 'class_declaration']:
-            continue
-        callee_class_dec = find_parent(callee_method_dec, ['class_declaration', 'interface_declaration', 'enum_declaration'])
-        method.add_resolved_call(files[path].types[callee_class_dec].methods[callee_method_dec])
+def resolve(lsp: SyncLanguageServer, path: Path, node: Node) -> list[tuple[File, Node]]:
+    return [(files[Path(location['absolutePath'])], files[Path(location['absolutePath'])].tree.root_node.descendant_for_point_range(Point(location['range']['start']['line'], location['range']['start']['character']), Point(location['range']['end']['line'], location['range']['end']['character']))) for location in lsp.request_definition(str(path), node.start_point.row, node.start_point.column) if Path(location['absolutePath']) in files]
 
-def resolve_interfaces(lsp: SyncLanguageServer, path: Path, class_type: Class):
-    for interface in class_type.interfaces:
-        locations = lsp.request_definition(str(path), interface.start_point.row, interface.start_point.column)
-        for location in locations:
-            path = Path(location['absolutePath'])
-            if path not in files:
-                continue
-            interface_dec = files[path].tree.root_node.descendant_for_point_range(Point(location['range']['start']['line'], location['range']['start']['character']), Point(location['range']['end']['line'], location['range']['end']['character']))
-            interface_dec = find_parent(interface_dec, ['interface_declaration'])
-            class_type.add_resolved_interface(files[path].types[interface_dec])
+def resolve_type(lsp: SyncLanguageServer, path: Path, node: Node) -> list[Type]:
+    res = []
+    for file, resolved_node in resolve(lsp, path, node):
+        type_dec = find_parent(resolved_node, ['class_declaration', 'interface_declaration', 'enum_declaration'])
+        res.append(file.types[type_dec])
+    return res
+
+def resolve_method(lsp: SyncLanguageServer, path: Path, node: Node) -> list[Method]:
+    res = []
+    for file, resolved_node in resolve(lsp, path, node):
+        method_dec = find_parent(resolved_node, ['method_declaration', 'constructor_declaration', 'class_declaration', 'interface_declaration', 'enum_declaration'])
+        if method_dec.type in ['class_declaration', 'interface_declaration', 'enum_declaration']:
+            continue
+        type_dec = find_parent(method_dec, ['class_declaration', 'interface_declaration', 'enum_declaration'])
+        res.append(file.types[type_dec].methods[method_dec])
+    return res
 
 for path in Path("/Users/aviavni/repos/JFalkorDB").rglob("*.java"):
     if 'test' in str(path):
@@ -172,11 +170,18 @@ with lsp.start_server():
         for type_dec, type in file.types.items():
             if isinstance(type, Class):
                 type.resolved_interfaces.clear()
-                resolve_interfaces(lsp, path, type)
+                for interface in type.interfaces:
+                    for resolved_interface in resolve_type(lsp, path, interface):
+                        type.add_resolved_interface(resolved_interface)
+                if type.base_class:
+                    resolved_class = resolve_type(lsp, path, type.base_class)
+                    if len(resolved_class) == 1:
+                        type.set_resolved_base_class(resolved_class[0])
             for method_dec, method in type.methods.items():
                 method.resolved_calls.clear()
                 for call in method.calls:
-                    resolve_call(lsp, path, call, method)
+                    for resolved_method in resolve_method(lsp, path, call):
+                        method.add_resolved_call(resolved_method)
 
 graph = FalkorDB().select_graph("java")
 
@@ -219,6 +224,16 @@ for path, file in tqdm.tqdm(files.items(), "Save calls"):
                 query += f"MATCH (interface:Type {{name: $interface_name}})\n"
                 params["interface_name"] = interface.node.child_by_field_name('name').text.decode('utf-8')
                 query += f"MERGE (type)-[:IMPLEMENTS]->(interface)\n"
+                query += "RETURN *"
+                res = graph.query(query, params)
+            if class_obj.resolved_base_class:
+                query = "MATCH (file:File {path: $path})\n"
+                params = {"path": str(path)}
+                query += f"MATCH (file)-[:DECLARE]->(type:Type {{name: $type_name}})\n"
+                params["type_name"] = class_dec.child_by_field_name('name').text.decode('utf-8')
+                query += f"MATCH (base_class:Type {{name: $base_class_name}})\n"
+                params["base_class_name"] = class_obj.resolved_base_class.node.child_by_field_name('name').text.decode('utf-8')
+                query += f"MERGE (type)-[:EXTENDS]->(base_class)\n"
                 query += "RETURN *"
                 res = graph.query(query, params)
         for method_dec, method_obj in class_obj.methods.items():
