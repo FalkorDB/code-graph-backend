@@ -20,14 +20,14 @@ class Method:
     def __init__(self, node: Node):
         self.node = node
         self.calls = []
-        self.resolved_calls = []
+        self.resolved_calls = set()
         self.parent = None
 
     def add_call(self, method: Node):
         self.calls.append(method)
 
     def add_resolved_call(self, method: Self):
-        self.resolved_calls.append(method)
+        self.resolved_calls.add(method)
 
 class Type:
     def __init__(self):
@@ -84,69 +84,49 @@ def find_parent(node: Node, parent_types: list):
 
 def find_calls(node:Node, method: Method):
     query = JAVA_LANGUAGE.query("(method_invocation) @reference.call")
-    captures = query.captures(tree.root_node)
+    captures = query.captures(node)
     if 'reference.call' in captures:
         for caller in captures['reference.call']:
             method.add_call(caller)
 
 
 def find_methods(node: Node, type: Type):
-    query = JAVA_LANGUAGE.query("(method_declaration) @definition.method")
+    query = JAVA_LANGUAGE.query("[(method_declaration) (constructor_declaration)] @definition.method")
     captures = query.captures(node)
     if 'definition.method' in captures:
         for method_dec in captures['definition.method']:
             type.add_method(Method(method_dec))
             find_calls(method_dec, type.methods[method_dec])
 
-    query = JAVA_LANGUAGE.query("(constructor_declaration) @definition.method")
-    captures = query.captures(node)
-    if 'definition.method' in captures:
-        for constructor_dec in captures['definition.method']:
-            type.add_method(Method(constructor_dec))
-            find_calls(constructor_dec, type.methods[constructor_dec])
 
-
-def find_classes(node: Node, file: File):
-    query = JAVA_LANGUAGE.query("(class_declaration) @definition.class")
+def find_type(node: Node, file: File):
+    query = JAVA_LANGUAGE.query("[(class_declaration) (interface_declaration) (enum_declaration)] @type")
     captures = query.captures(node)
-    if 'definition.class' in captures:
-        for class_dec in captures['definition.class']:
-            type = Class(class_dec)
+    if 'type' in captures:
+        for type_dec in captures['type']:
+            if type_dec.type == 'class_declaration':
+                type = Class(type_dec)
+                interfaces_query = JAVA_LANGUAGE.query("(super_interfaces (type_list (type_identifier) @interface))")
+                interfaces_captures = interfaces_query.captures(type_dec)
+                if 'interface' in interfaces_captures:
+                    for interface in interfaces_captures['interface']:
+                        type.add_implement_interface(interface)
+                base_class_query = JAVA_LANGUAGE.query("(superclass (type_identifier) @base_class)")
+                base_class_captures = base_class_query.captures(type_dec)
+                if 'base_class' in base_class_captures:
+                    base_class = base_class_captures['base_class'][0]
+                    type.add_base_class(base_class)
+            elif type_dec.type == 'interface_declaration':
+                type = Interface(type_dec)
+                query = JAVA_LANGUAGE.query("(extends_interfaces (type_list (type_identifier) @type))?")
+                extends_captures = query.captures(type_dec)
+                if 'type' in extends_captures:
+                    for interface in extends_captures['type']:
+                        type.add_extends_interface(interface)
+            elif type_dec.type == 'enum_declaration':
+                type = Enum(type_dec)
             file.add_type(type)
-            interfaces_query = JAVA_LANGUAGE.query("(super_interfaces (type_list (type_identifier) @interface))")
-            interfaces_captures = interfaces_query.captures(class_dec)
-            if 'interface' in interfaces_captures:
-                for interface in interfaces_captures['interface']:
-                    type.add_implement_interface(interface)
-            base_class_query = JAVA_LANGUAGE.query("(superclass (type_identifier) @base_class)")
-            base_class_captures = base_class_query.captures(class_dec)
-            if 'base_class' in base_class_captures:
-                base_class = base_class_captures['base_class'][0]
-                type.add_base_class(base_class)
-            find_methods(class_dec, type)
-
-def find_interfaces(node: Node, file: File):
-    query = JAVA_LANGUAGE.query("(interface_declaration) @definition.interface")
-    captures = query.captures(node)
-    if 'definition.interface' in captures:
-        for i, interface_dec in enumerate(captures['definition.interface']):
-            type = Interface(interface_dec)
-            file.add_type(type)
-            query = JAVA_LANGUAGE.query("(extends_interfaces (type_list (type_identifier) @type))?")
-            extends_captures = query.captures(interface_dec)
-            if 'type' in extends_captures:
-                for interface in extends_captures['type']:
-                    type.add_extends_interface(interface)
-            find_methods(interface_dec, type)
-
-def find_enums(node: Node, file: File):
-    query = JAVA_LANGUAGE.query("(enum_declaration) @definition.enum")
-    captures = query.captures(node)
-    if 'definition.enum' in captures:
-        for enum_dec in captures['definition.enum']:
-            type = Enum(enum_dec)
-            file.add_type(type)
-            find_methods(enum_dec, type)
+            find_methods(type_dec, type)
 
 def resolve_call(lsp: SyncLanguageServer, path: Path, call: Node, method: Method):
     locations = lsp.request_definition(str(path), call.start_point.row, call.start_point.column)
@@ -154,7 +134,10 @@ def resolve_call(lsp: SyncLanguageServer, path: Path, call: Node, method: Method
         path = Path(location['absolutePath'])
         if path not in files:
             continue
-        callee_method_dec = files[path].tree.root_node.descendant_for_point_range(Point(location['range']['start']['line'], location['range']['start']['character']), Point(location['range']['end']['line'], location['range']['end']['character']))
+        range = location['range']
+        start = range['start']
+        end = range['end']
+        callee_method_dec = files[path].tree.root_node.descendant_for_point_range(Point(start['line'], start['character']), Point(end['line'], end['character']))
         callee_method_dec = find_parent(callee_method_dec, ['method_declaration', 'constructor_declaration', 'field_declaration', 'enum_declaration', 'interface_declaration', 'class_declaration'])
         if callee_method_dec.type in ['field_declaration', 'enum_declaration', 'interface_declaration', 'class_declaration']:
             continue
@@ -182,9 +165,7 @@ for path in Path("/Users/aviavni/repos/JFalkorDB").rglob("*.java"):
     file = File(path, tree)
     files[path] = file
 
-    find_classes(tree.root_node, file)
-    find_interfaces(tree.root_node, file)
-    find_enums(tree.root_node, file)
+    find_type(tree.root_node, file)
 
 with lsp.start_server():
     for path, file in tqdm.tqdm(files.items(), "Resolve file"):
@@ -205,9 +186,11 @@ except:
     pass
 
 graph.create_node_range_index("File", "path")
-graph.create_node_range_index("Class", "name")
+graph.create_node_range_index("Type", "name")
 graph.create_node_range_index("Method", "name", "parameters")
 
+nodes_created = 0
+relationships_created = 0
 for path, file in tqdm.tqdm(files.items(), "Save file hierarchy"):
     params = {"path": str(path)}
     query = "CREATE (file:File {path: $path})\n"
@@ -218,8 +201,13 @@ for path, file in tqdm.tqdm(files.items(), "Save file hierarchy"):
             params[f"method_name_{i}_{j}"] = method_dec.child_by_field_name('name').text.decode('utf-8')
             params[f"mathod_params_{i}_{j}"] = method_dec.child_by_field_name('parameters').text.decode('utf-8')
             query += f"CREATE (type_{i})-[:HAS_METHOD]->(method_{i}_{j}:Method {{name: $method_name_{i}_{j}, parameters: $mathod_params_{i}_{j}}})\n"
-    graph.query(query, params)
+    res = graph.query(query, params)
+    nodes_created += res.nodes_created
+    relationships_created += res.relationships_created
+print(f"Created {nodes_created} nodes and {relationships_created} relationships")
 
+actual_calls = 0
+expected_calls = 0
 for path, file in tqdm.tqdm(files.items(), "Save calls"):
     for class_dec, class_obj in file.types.items():
         if isinstance(class_obj, Class):
@@ -233,7 +221,6 @@ for path, file in tqdm.tqdm(files.items(), "Save calls"):
                 query += f"MERGE (type)-[:IMPLEMENTS]->(interface)\n"
                 query += "RETURN *"
                 res = graph.query(query, params)
-                print(res.relationships_created)
         for method_dec, method_obj in class_obj.methods.items():
             params = {}
             query = "MATCH (file:File {path: $path})\n"
@@ -254,3 +241,6 @@ for path, file in tqdm.tqdm(files.items(), "Save calls"):
                 query += f"WITH file, type, caller\n"
             query += "RETURN *"
             res = graph.query(query, params)
+            actual_calls += res.relationships_created
+            expected_calls += len(method_obj.resolved_calls)
+print(actual_calls, expected_calls, actual_calls == expected_calls)
