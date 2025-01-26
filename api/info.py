@@ -18,8 +18,8 @@ def get_redis_connection() -> redis.Redis:
     """
     try:
         return redis.Redis(
-            host             = os.getenv('FALKORDB_HOST'),
-            port             = os.getenv('FALKORDB_PORT'),
+            host             = os.getenv('FALKORDB_HOST', "localhost"),
+            port             = int(os.getenv('FALKORDB_PORT', "6379")),
             username         = os.getenv('FALKORDB_USERNAME'),
             password         = os.getenv('FALKORDB_PASSWORD'),
             decode_responses = True  # To ensure string responses
