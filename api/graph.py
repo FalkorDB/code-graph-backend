@@ -484,7 +484,7 @@ class Graph():
 
         q = """MERGE (f:File:Searchable {path: $path, name: $name, ext: $ext})
                RETURN f"""
-        params = {'path': file.path, 'name': file.path.name, 'ext': file.path.suffix}
+        params = {'path': str(file.path), 'name': file.path.name, 'ext': file.path.suffix}
 
         res     = self._query(q, params)
         node    = res.result_set[0][0]

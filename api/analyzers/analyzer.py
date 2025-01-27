@@ -1,9 +1,8 @@
 from pathlib import Path
 
-from tree_sitter import Language, Node, Parser
+from tree_sitter import Language, Node, Parser, Point
 from api.entities.entity import Entity
 from api.entities.file import File
-from api.graph import Graph
 from abc import ABC, abstractmethod
 from multilspy import SyncLanguageServer
 
@@ -11,6 +10,14 @@ class AbstractAnalyzer(ABC):
     def __init__(self, language: Language) -> None:
         self.language = language
         self.parser = Parser(language)
+
+    def find_parent(self, node: Node, parent_types: list) -> Node:
+        while node.type not in parent_types:
+            node = node.parent
+        return node
+
+    def resolve(self, files: dict[Path, File], lsp: SyncLanguageServer, path: Path, node: Node) -> list[tuple[File, Node]]:
+        return [(files[Path(location['absolutePath'])], files[Path(location['absolutePath'])].tree.root_node.descendant_for_point_range(Point(location['range']['start']['line'], location['range']['start']['character']), Point(location['range']['end']['line'], location['range']['end']['character']))) for location in lsp.request_definition(str(path), node.start_point.row, node.start_point.column) if Path(location['absolutePath']) in files]
     
     @abstractmethod
     def get_top_level_entity_types(self) -> list[str]:
@@ -46,7 +53,7 @@ class AbstractAnalyzer(ABC):
         pass
 
     @abstractmethod
-    def resolve_symbol(self, lsp: SyncLanguageServer, path: Path, key: str, symbol: Node) -> Entity:
+    def resolve_symbol(self, files: dict[Path, File], lsp: SyncLanguageServer, path: Path, key: str, symbol: Node) -> Entity:
         """
         Resolve a symbol to an entity.
 

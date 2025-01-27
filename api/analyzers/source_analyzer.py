@@ -19,10 +19,11 @@ import logging
 logging.basicConfig(level=logging.DEBUG, format='%(filename)s - %(asctime)s - %(levelname)s - %(message)s')
 
 # List of available analyzers
-analyzers: dict[str, AbstractAnalyzer] = {'.c': CAnalyzer(),
-             '.h': CAnalyzer(),
-             '.py': PythonAnalyzer(),
-             '.java': JavaAnalyzer()}
+analyzers: dict[str, AbstractAnalyzer] = {
+    # '.c': CAnalyzer(),
+    # '.h': CAnalyzer(),
+    # '.py': PythonAnalyzer(),
+    '.java': JavaAnalyzer()}
 
 class SourceAnalyzer():
     def __init__(self) -> None:
@@ -35,7 +36,8 @@ class SourceAnalyzer():
     
     def create_hierarchy(self, analyzer: AbstractAnalyzer, file: File):
         types = analyzer.get_top_level_entity_types()
-        query = analyzer.language.query(f"[{" ".join([f"({type})" for type in types])}] @top_level_entity")
+        alternative_types = " ".join([f"({type})" for type in types])
+        query = analyzer.language.query(f"[{alternative_types}] @top_level_entity")
         captures = query.captures(file.tree.root_node)
         if 'top_level_entity' in captures:
             for top_level_entity in captures['top_level_entity']:
@@ -90,7 +92,7 @@ class SourceAnalyzer():
             for file_path, file in self.files.items():
                 logging.info(f'Processing file: {file_path}')
                 for _, entity in file.entities.items():
-                    entity.resolved_symbol(lambda key, symbol: analyzers[file_path.suffix].resolve_symbol(self.lsp, file_path, key, symbol))
+                    entity.resolved_symbol(lambda key, symbol: analyzers[file_path.suffix].resolve_symbol(self.files, lsp, file_path, key, symbol))
 
     def analyze_file(self, path: Path, lsp: SyncLanguageServer, graph: Graph) -> None:
         ext = path.suffix
@@ -125,7 +127,7 @@ class SourceAnalyzer():
         lsp = SyncLanguageServer.create(config, logger, path)
 
         # Analyze source files
-        self.analyze_sources(path, ignore, g, lsp)
+        self.analyze_sources(Path(path), ignore, g, lsp)
 
         logging.info("Done analyzing path")
 
