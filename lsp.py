@@ -1,3 +1,4 @@
+from more_itertools import first
 import tqdm
 from pathlib import Path
 from typing import Callable, Optional, Self
@@ -8,9 +9,11 @@ from multilspy.multilspy_config import MultilspyConfig
 from multilspy.multilspy_logger import MultilspyLogger
 from falkordb import FalkorDB
 
+# PATH = "/Users/aviavni/repos/jedis"
+PATH = "/Users/aviavni/repos/JFalkorDB"
 config = MultilspyConfig.from_dict({"code_language": "java"})
 logger = MultilspyLogger()
-lsp = SyncLanguageServer.create(config, logger, "/Users/aviavni/repos/jedis")
+lsp = SyncLanguageServer.create(config, logger, PATH)
 
 JAVA_LANGUAGE = Language(tree_sitter_java.language())
 parser = Parser(JAVA_LANGUAGE)
@@ -23,6 +26,8 @@ class Entity:
         self.children: dict[Node, Self] = {}
 
     def add_symbol(self, key: str, symbol: Node):
+        if symbol is None:
+            raise ValueError(f"Symbol is None for key {key}")
         if key not in self.symbols:
             self.symbols[key] = []
         self.symbols[key].append(symbol)
@@ -41,10 +46,12 @@ class Entity:
             child.resolved_symbol(f)
 
         for key, symbols in self.symbols.items():
-            self.resolved_symbols[key] = set()
+            resolved_symbols = set()
             for symbol in symbols:
                 for resolved_symbol in f(key, symbol):
-                    self.resolved_symbols[key].add(resolved_symbol)
+                    resolved_symbols.add(resolved_symbol)
+            if len(resolved_symbols) > 0:
+                self.resolved_symbols[key] = resolved_symbols
 
 class File:
     def __init__(self, path: Path, tree: Tree):
@@ -74,6 +81,13 @@ def find_methods(type: Entity):
     if 'definition.method' in captures:
         for method_dec in captures['definition.method']:
             method = Entity(method_dec)
+            query = JAVA_LANGUAGE.query("(formal_parameters (formal_parameter type: (_) @parameter))")
+            captures = query.captures(method_dec)
+            if 'parameter' in captures:
+                for parameter in captures['parameter']:
+                    method.add_symbol("parameters", parameter)
+            if method_dec.type == 'method_declaration':
+                method.add_symbol("return_type", method_dec.child_by_field_name('type'))
             type.add_child(method)
             find_calls(method)
 
@@ -128,7 +142,7 @@ def resolve_method(lsp: SyncLanguageServer, path: Path, node: Node) -> list[Enti
 
 files: dict[Path, File] = {}
 
-for path in tqdm.tqdm(Path("/Users/aviavni/repos/jedis").rglob("*.java"), "Parse files"):
+for path in tqdm.tqdm(Path(PATH).rglob("*.java"), "Parse files"):
     if 'test' in str(path):
         continue
 
@@ -141,7 +155,7 @@ for path in tqdm.tqdm(Path("/Users/aviavni/repos/jedis").rglob("*.java"), "Parse
     find_type(file)
 
 def resolve_symbol(key: str, symbol: Node) -> Entity:
-    if key in ["implement_interface", "base_class", "extend_interface"]:
+    if key in ["implement_interface", "base_class", "extend_interface", "parameters", "return_type"]:
         return resolve_type(lsp, path, symbol)
     elif key in ["call"]:
         return resolve_method(lsp, path, symbol)
@@ -150,7 +164,7 @@ def resolve_symbol(key: str, symbol: Node) -> Entity:
 
 with lsp.start_server():
     for path, file in tqdm.tqdm(files.items(), "Resolve file"):
-        for type_dec, type in tqdm.tqdm(file.types.items(), "Resolve type"):
+        for type_dec, type in file.types.items():
             if type.node.type == 'class_declaration':
                 type.resolved_symbol(resolve_symbol)
 
@@ -201,7 +215,7 @@ for path, file in tqdm.tqdm(files.items(), "Save calls"):
             query += f"MATCH (file)-[:DECLARE]->(type:Type {{name: $type_name}})\n"
             params["type_name"] = class_dec.child_by_field_name('name').text.decode('utf-8')
             query += f"MATCH (base_class:Type {{name: $base_class_name}})\n"
-            params["base_class_name"] = class_obj.resolved_symbols["base_class"].node.child_by_field_name('name').text.decode('utf-8')
+            params["base_class_name"] = first(class_obj.resolved_symbols["base_class"]).node.child_by_field_name('name').text.decode('utf-8')
             query += f"MERGE (type)-[:EXTENDS]->(base_class)\n"
             query += "RETURN *"
             res = graph.query(query, params)
