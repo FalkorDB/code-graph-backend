@@ -18,9 +18,9 @@ parser = Parser(JAVA_LANGUAGE)
 class Entity:
     def __init__(self, node: Node):
         self.node = node
-        self.parent: Optional[Self] = None
         self.symbols: dict[str, list[Node]] = {}
         self.resolved_symbols: dict[str, set[Self]] = {}
+        self.children: dict[Node, Self] = {}
 
     def add_symbol(self, key: str, symbol: Node):
         if key not in self.symbols:
@@ -32,10 +32,17 @@ class Entity:
             self.resolved_symbols[key] = set()
         self.resolved_symbols[key].add(symbol)
 
+    def add_child(self, child: Self):
+        child.parent = self
+        self.children[child.node] = child
+
     def resolved_symbol(self, f: Callable[[str, Node], list[Self]]):
+        for _, child in self.children.items():
+            child.resolved_symbol(f)
+
         for key, symbols in self.symbols.items():
             self.resolved_symbols[key] = set()
-            for symbol in tqdm.tqdm(symbols, f"Resolve {key}"):
+            for symbol in symbols:
                 for resolved_symbol in f(key, symbol):
                     self.resolved_symbols[key].add(resolved_symbol)
 
@@ -67,8 +74,7 @@ def find_methods(type: Entity):
     if 'definition.method' in captures:
         for method_dec in captures['definition.method']:
             method = Entity(method_dec)
-            method.parent = type
-            type.add_resolved_symbol("methods", method)
+            type.add_child(method)
             find_calls(method)
 
 def find_type(file: File):
@@ -117,7 +123,7 @@ def resolve_method(lsp: SyncLanguageServer, path: Path, node: Node) -> list[Enti
         if method_dec.type in ['class_declaration', 'interface_declaration', 'enum_declaration']:
             continue
         type_dec = find_parent(method_dec, ['class_declaration', 'interface_declaration', 'enum_declaration'])
-        res.append(file.types[type_dec].methods[method_dec])
+        res.append(file.types[type_dec].children[method_dec])
     return res
 
 files: dict[Path, File] = {}
@@ -138,7 +144,7 @@ def resolve_symbol(key: str, symbol: Node) -> Entity:
     if key in ["implement_interface", "base_class", "extend_interface"]:
         return resolve_type(lsp, path, symbol)
     elif key in ["call"]:
-        return resolve_method(lsp, path, call)
+        return resolve_method(lsp, path, symbol)
     else:
         raise ValueError(f"Unknown key {key}")
 
@@ -167,11 +173,10 @@ for path, file in tqdm.tqdm(files.items(), "Save file hierarchy"):
     for i, (class_dec, class_obj) in enumerate(file.types.items()):
         params[f"type_name_{i}"] = class_dec.child_by_field_name('name').text.decode('utf-8')
         query += f"CREATE (file)-[:DECLARE]->(type_{i}:Type {{name: $type_name_{i}}})\n"
-        if "methods" in class_obj.resolved_symbols:
-            for j, method_obj in enumerate(class_obj.resolved_symbols["methods"]):
-                params[f"method_name_{i}_{j}"] = method_obj.node.child_by_field_name('name').text.decode('utf-8')
-                params[f"mathod_params_{i}_{j}"] = method_obj.node.child_by_field_name('parameters').text.decode('utf-8')
-                query += f"CREATE (type_{i})-[:HAS_METHOD]->(method_{i}_{j}:Method {{name: $method_name_{i}_{j}, parameters: $mathod_params_{i}_{j}}})\n"
+        for j, (_, method_obj) in enumerate(class_obj.children.items()):
+            params[f"method_name_{i}_{j}"] = method_obj.node.child_by_field_name('name').text.decode('utf-8')
+            params[f"mathod_params_{i}_{j}"] = method_obj.node.child_by_field_name('parameters').text.decode('utf-8')
+            query += f"CREATE (type_{i})-[:HAS_METHOD]->(method_{i}_{j}:Method {{name: $method_name_{i}_{j}, parameters: $mathod_params_{i}_{j}}})\n"
     res = graph.query(query, params)
     nodes_created += res.nodes_created
     relationships_created += res.relationships_created
@@ -200,7 +205,7 @@ for path, file in tqdm.tqdm(files.items(), "Save calls"):
             query += f"MERGE (type)-[:EXTENDS]->(base_class)\n"
             query += "RETURN *"
             res = graph.query(query, params)
-        for method_obj in class_obj.resolved_symbols["methods"]:
+        for _, method_obj in class_obj.children.items():
             params = {}
             query = "MATCH (file:File {path: $path})\n"
             params["path"] = str(path)
