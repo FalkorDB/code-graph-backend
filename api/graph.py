@@ -479,14 +479,12 @@ class Graph():
         Add a file node to the graph database.
 
         Args:
-            file_path (str): Path of the file.
-            file_name (str): Name of the file.
-            file_ext (str): Extension of the file.
+            file (File): The file.
         """
 
         q = """MERGE (f:File:Searchable {path: $path, name: $name, ext: $ext})
                RETURN f"""
-        params = {'path': file.path, 'name': file.name, 'ext': file.ext}
+        params = {'path': file.path, 'name': file.path.name, 'ext': file.path.suffix}
 
         res     = self._query(q, params)
         node    = res.result_set[0][0]

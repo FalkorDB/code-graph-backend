@@ -1,31 +1,50 @@
-import os
-import shutil
-import concurrent.futures
-
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional
+
+from api.entities.entity import Entity
+from api.entities.file import File
 
 from ..graph import Graph
+from .analyzer import AbstractAnalyzer
 from .c.analyzer import CAnalyzer
+from .java.analyzer import JavaAnalyzer
 from .python.analyzer import PythonAnalyzer
+
+from multilspy import SyncLanguageServer
+from multilspy.multilspy_config import MultilspyConfig
+from multilspy.multilspy_logger import MultilspyLogger
 
 import logging
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(filename)s - %(asctime)s - %(levelname)s - %(message)s')
 
 # List of available analyzers
-analyzers = {'.c': CAnalyzer(),
+analyzers: dict[str, AbstractAnalyzer] = {'.c': CAnalyzer(),
              '.h': CAnalyzer(),
-             '.py': PythonAnalyzer()}
+             '.py': PythonAnalyzer(),
+             '.java': JavaAnalyzer()}
 
 class SourceAnalyzer():
+    def __init__(self) -> None:
+        self.files: dict[Path, File] = {}
 
-    def supported_types(self) -> List[str]:
+    def supported_types(self) -> list[str]:
         """
         """
         return list(analyzers.keys())
+    
+    def create_hierarchy(self, analyzer: AbstractAnalyzer, file: File):
+        types = analyzer.get_top_level_entity_types()
+        query = analyzer.language.query(f"[{" ".join([f"({type})" for type in types])}] @top_level_entity")
+        captures = query.captures(file.tree.root_node)
+        if 'top_level_entity' in captures:
+            for top_level_entity in captures['top_level_entity']:
+                entity = Entity(top_level_entity)
+                analyzer.add_symbols(entity)
+                analyzer.add_children(entity)
+                file.add_entity(entity)
 
-    def first_pass(self, ignore: List[str], executor: concurrent.futures.Executor) -> None:
+    def first_pass(self, path: Path, ignore: list[str], graph: Graph) -> None:
         """
         Perform the first pass analysis on source files in the given directory tree.
 
@@ -34,44 +53,30 @@ class SourceAnalyzer():
             executor (concurrent.futures.Executor): The executor to run tasks concurrently.
         """
 
-        tasks = []
-        for dirpath, dirnames, filenames in os.walk("."):
-
-            # skip current directory if it is within the ignore list
-            if dirpath in ignore:
-                # in-place clear dirnames to prevent os.walk from recursing into
-                # any of the nested directories
-                logging.info(f'ignoring directory: {dirpath}')
-                dirnames[:] = []
+        for file_path in path.rglob('*.*'):
+            # Skip none supported files
+            if file_path.suffix not in analyzers:
+                logging.info(f"Skipping none supported file {file_path}")
                 continue
 
-            logging.info(f'Processing directory: {dirpath}')
+            logging.info(f'Processing file: {file_path}')
 
-            # Process each file in the current directory
-            for filename in filenames:
-                file_path = Path(os.path.join(dirpath, filename))
+            analyzer = analyzers[file_path.suffix]
 
-                # Skip none supported files
-                ext = file_path.suffix
-                if ext not in analyzers:
-                    logging.info(f"Skipping none supported file {file_path}")
-                    continue
+            # Parse file
+            source_code = file_path.read_bytes()
+            tree = analyzer.parser.parse(source_code)
 
-                logging.info(f'Processing file: {file_path}')
+            # Create file entity
+            file = File(file_path, tree)
+            self.files[file_path] = file
 
-                def process_file(path: Path) -> None:
-                    with open(path, 'rb') as f:
-                        ext = path.suffix
-                        analyzers[ext].first_pass(path, f, self.graph)
+            # Walk thought the AST
+            self.create_hierarchy(analyzer, file)
 
-                process_file(file_path)
-                #task = executor.submit(process_file, file_path)
-                #tasks.append(task)
+            graph.add_file(file)
 
-        # Wait for all tasks to complete
-        #concurrent.futures.wait(tasks)
-
-    def second_pass(self, ignore: List[str], executor: concurrent.futures.Executor) -> None:
+    def second_pass(self, graph: Graph, lsp: SyncLanguageServer) -> None:
         """
         Recursively analyze the contents of a directory.
 
@@ -81,61 +86,30 @@ class SourceAnalyzer():
             executor (concurrent.futures.Executor): The executor to run tasks concurrently.
         """
 
-        tasks = []
-        for dirpath, dirnames, filenames in os.walk("."):
-
-            # skip current directory if it is within the ignore list
-            if dirpath in ignore:
-                # in-place clear dirnames to prevent os.walk from recursing into
-                # any of the nested directories
-                logging.info(f'ignoring directory: {dirpath}')
-                dirnames[:] = []
-                continue
-
-            logging.info(f'Processing directory: {dirpath}')
-
-            # Process each file in the current directory
-            for filename in filenames:
-                file_path = Path(os.path.join(dirpath, filename))
-
-                # Skip none supported files
-                ext = file_path.suffix
-                if ext not in analyzers:
-                    continue
-
+        with lsp.start_server():
+            for file_path, file in self.files.items():
                 logging.info(f'Processing file: {file_path}')
+                for _, entity in file.entities.items():
+                    entity.resolved_symbol(lambda key, symbol: analyzers[file_path.suffix].resolve_symbol(self.lsp, file_path, key, symbol))
 
-                def process_file(path: Path) -> None:
-                    with open(path, 'rb') as f:
-                        ext = path.suffix
-                        analyzers[ext].second_pass(path, f, self.graph)
-
-                task = executor.submit(process_file, file_path)
-                tasks.append(task)
-
-        # Wait for all tasks to complete
-        concurrent.futures.wait(tasks)
-
-    def analyze_file(self, path: Path, graph: Graph) -> None:
+    def analyze_file(self, path: Path, lsp: SyncLanguageServer, graph: Graph) -> None:
         ext = path.suffix
         logging.info(f"analyze_file: path: {path}")
         logging.info(f"analyze_file: ext: {ext}")
         if ext not in analyzers:
             return
 
-        with open(path, 'rb') as f:
-            analyzers[ext].first_pass(path, f, graph)
-            analyzers[ext].second_pass(path, f, graph)
+        self.first_pass(path, [], graph)
+        self.second_pass(graph, lsp)
 
-    def analyze_sources(self, ignore: List[str]) -> None:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            # First pass analysis of the source code
-            self.first_pass(ignore, executor)
+    def analyze_sources(self, path: Path, ignore: list[str], graph: Graph, lsp: SyncLanguageServer) -> None:
+        # First pass analysis of the source code
+        self.first_pass(path, ignore, graph)
 
-            # Second pass analysis of the source code
-            self.second_pass(ignore, executor)
+        # Second pass analysis of the source code
+        self.second_pass(graph, lsp)
 
-    def analyze_local_folder(self, path: str, g: Graph, ignore: Optional[List[str]] = []) -> None:
+    def analyze_local_folder(self, path: str, g: Graph, ignore: Optional[list[str]] = []) -> None:
         """
         Analyze path.
 
@@ -146,24 +120,16 @@ class SourceAnalyzer():
 
         logging.info(f"Analyzing local folder {path}")
 
-        # Save original working directory for later restore
-        original_dir = Path.cwd()
-
-        # change working directory to path
-        os.chdir(path)
-
-        # Initialize the graph and analyzer
-        self.graph = g
+        config = MultilspyConfig.from_dict({"code_language": "java"})
+        logger = MultilspyLogger()
+        lsp = SyncLanguageServer.create(config, logger, path)
 
         # Analyze source files
-        self.analyze_sources(ignore)
+        self.analyze_sources(path, ignore, g, lsp)
 
         logging.info("Done analyzing path")
 
-        # Restore original working dir
-        os.chdir(original_dir)
-
-    def analyze_local_repository(self, path: str, ignore: Optional[List[str]] = []) -> Graph:
+    def analyze_local_repository(self, path: str, ignore: Optional[list[str]] = []) -> Graph:
         """
         Analyze a local Git repository.
 

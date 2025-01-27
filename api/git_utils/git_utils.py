@@ -33,7 +33,7 @@ def is_ignored(file_path: str, ignore_list: List[str]) -> bool:
 
     return any(file_path.startswith(ignore) for ignore in ignore_list)
 
-def classify_changes(diff, ignore_list: List[str]) -> (List[str], List[str], List[str]):
+def classify_changes(diff, ignore_list: List[str]) -> tuple[list[Path], list[Path], list[Path]]:
     """
     Classifies changes into added, deleted, and modified files.
 
@@ -53,7 +53,7 @@ def classify_changes(diff, ignore_list: List[str]) -> (List[str], List[str], Lis
             added.append(Path(change.b_path))
         if change.deleted_file and not is_ignored(change.a_path, ignore_list):
             logging.debug(f"deleted file: {change.a_path}")
-            deleted.append(change.a_path)
+            deleted.append(Path(change.a_path))
         if change.change_type == 'M' and not is_ignored(change.a_path, ignore_list):
             logging.debug(f"change file: {change.a_path}")
             modified.append(Path(change.a_path))
