@@ -81,7 +81,7 @@ class JavaAnalyzer(AbstractAnalyzer):
         res = []
         for file, resolved_node in self.resolve(files, lsp, path, node):
             type_dec = self.find_parent(resolved_node, ['class_declaration', 'interface_declaration', 'enum_declaration'])
-            res.append(file.types[type_dec])
+            res.append(file.entities[type_dec])
         return res
 
     def resolve_method(self, files: dict[Path, File], lsp: SyncLanguageServer, path: Path, node: Node) -> list[Entity]:
@@ -91,7 +91,7 @@ class JavaAnalyzer(AbstractAnalyzer):
             if method_dec.type in ['class_declaration', 'interface_declaration', 'enum_declaration']:
                 continue
             type_dec = self.find_parent(method_dec, ['class_declaration', 'interface_declaration', 'enum_declaration'])
-            res.append(file.types[type_dec].children[method_dec])
+            res.append(file.entities[type_dec].children[method_dec])
         return res
     
     def resolve_symbol(self, files: dict[Path, File], lsp: SyncLanguageServer, path: Path, key: str, symbol: Node) -> Entity:
