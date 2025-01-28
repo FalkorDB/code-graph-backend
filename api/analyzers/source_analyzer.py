@@ -1,8 +1,10 @@
 from pathlib import Path
 from typing import Optional
 
+from api.entities.cls import Class
 from api.entities.entity import Entity
 from api.entities.file import File
+from api.entities.function import Function
 
 from ..graph import Graph
 from .analyzer import AbstractAnalyzer
@@ -77,6 +79,14 @@ class SourceAnalyzer():
             self.create_hierarchy(analyzer, file)
 
             graph.add_file(file)
+            for node, entity in file.entities.items():
+                cls = Class(str(file_path), analyzer.get_entity_name(node), analyzer.get_entity_docstring(node), node.start_point.row, node.end_point.row)
+                graph.add_class(cls)
+                graph.connect_entities("DEFINES", file.id, cls.id)
+                for node, entity in entity.children.items():
+                    fn = Function(str(file_path), analyzer.get_entity_name(node), analyzer.get_entity_docstring(node), None, node.text.decode("utf-8"), node.start_point.row, node.end_point.row)
+                    graph.add_function(fn)
+                    graph.connect_entities("DEFINES", cls.id, fn.id)
 
     def second_pass(self, graph: Graph, lsp: SyncLanguageServer) -> None:
         """

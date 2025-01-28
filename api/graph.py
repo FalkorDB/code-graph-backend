@@ -1,7 +1,7 @@
 import os
 import time
 from .entities import *
-from typing import Dict, Optional, List, Tuple
+from typing import Optional
 from falkordb import FalkorDB, Path, Node, QueryResult
 
 # Configure the logger
@@ -17,7 +17,7 @@ def graph_exists(name: str):
 
     return name in db.list_graphs()
 
-def get_repos() -> List[str]:
+def get_repos() -> list[str]:
     """
         List processed repositories
     """
@@ -105,12 +105,12 @@ class Graph():
         self.backlog = None
         logging.debug("Backlog disabled")
 
-    def clear_backlog(self) -> Tuple[List[str], List[dict]]:
+    def clear_backlog(self) -> tuple[list[str], list[dict]]:
         """
         Clears and returns the backlog of queries and parameters.
 
         Returns:
-            Tuple[List[str], List[dict]]: A tuple containing two lists:
+            tuple[list[str], list[dict]]: A tuple containing two lists:
             - The first list contains the backlog of queries.
             - The second list contains the backlog of query parameters.
         """
@@ -194,7 +194,7 @@ class Graph():
         return sub_graph
 
 
-    def get_neighbors(self, node_ids: List[int], rel: Optional[str] = None, lbl: Optional[str] = None) -> Dict[str, List[dict]]:
+    def get_neighbors(self, node_ids: list[int], rel: Optional[str] = None, lbl: Optional[str] = None) -> dict[str, list[dict]]:
         """
         Fetch the neighbors of a given nodes in the graph based on relationship type and/or label.
 
@@ -359,7 +359,7 @@ class Graph():
         func.id = node.id
 
     # set functions metadata
-    def set_functions_metadata(self, ids: List[int], metadata: List[dict]) -> None:
+    def set_functions_metadata(self, ids: list[int], metadata: list[dict]) -> None:
         assert(len(ids) == len(metadata))
 
         # TODO: Match (f:Function)
@@ -375,7 +375,7 @@ class Graph():
         self._query(q, params)
 
     # get all functions defined by file
-    def get_functions_in_file(self, path: str, name: str, ext: str) -> List[Function]:
+    def get_functions_in_file(self, path: str, name: str, ext: str) -> list[Function]:
         q = """MATCH (f:File {path: $path, name: $name, ext: $ext})
                MATCH (f)-[:DEFINES]->(func:Function)
                RETURN collect(func)"""
@@ -444,7 +444,7 @@ class Graph():
 
         return self._function_from_node(node)
 
-    def function_calls(self, func_id: int) -> List[Function]:
+    def function_calls(self, func_id: int) -> list[Function]:
         q = """MATCH (f:Function)
                WHERE ID(f) = $func_id
                MATCH (f)-[:CALLS]->(callee)
@@ -459,7 +459,7 @@ class Graph():
 
         return callees
     
-    def function_called_by(self, func_id: int) -> List[Function]:
+    def function_called_by(self, func_id: int) -> list[Function]:
         q = """MATCH (f:Function)
                WHERE ID(f) = $func_id
                MATCH (caller)-[:CALLS]->(f)
@@ -490,7 +490,7 @@ class Graph():
         node    = res.result_set[0][0]
         file.id = node.id
 
-    def delete_files(self, files: List[dict]) -> tuple[str, dict, List[int]]:
+    def delete_files(self, files: list[dict]) -> tuple[str, dict, list[int]]:
         """
         Deletes file(s) from the graph in addition to any other entity
         defined in the file
@@ -685,7 +685,7 @@ class Graph():
 
         return self._query(q, params)
 
-    def find_paths(self, src: int, dest: int) -> List[Path]:
+    def find_paths(self, src: int, dest: int) -> list[Path]:
         """
         Find all paths between the source (src) and destination (dest) nodes.
 
@@ -750,7 +750,7 @@ class Graph():
         # Return the statistics
         return {'node_count': node_count, 'edge_count': edge_count}
 
-    def unreachable_entities(self, lbl: Optional[str], rel: Optional[str]) -> List[dict]:
+    def unreachable_entities(self, lbl: Optional[str], rel: Optional[str]) -> list[dict]:
         lbl = f": {lbl}" if lbl else ""
         rel = f": {rel}" if rel else ""
 

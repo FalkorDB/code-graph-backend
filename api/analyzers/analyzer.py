@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Optional
 
 from tree_sitter import Language, Node, Parser, Point
 from api.entities.entity import Entity
@@ -18,6 +19,32 @@ class AbstractAnalyzer(ABC):
 
     def resolve(self, files: dict[Path, File], lsp: SyncLanguageServer, path: Path, node: Node) -> list[tuple[File, Node]]:
         return [(files[Path(location['absolutePath'])], files[Path(location['absolutePath'])].tree.root_node.descendant_for_point_range(Point(location['range']['start']['line'], location['range']['start']['character']), Point(location['range']['end']['line'], location['range']['end']['character']))) for location in lsp.request_definition(str(path), node.start_point.row, node.start_point.column) if Path(location['absolutePath']) in files]
+    
+    @abstractmethod
+    def get_entity_name(self, node: Node) -> str:
+        """
+        Get the entity name from the node.
+
+        Args:
+            node (Node): The node.
+        
+        Returns:
+            str: The entity name.
+        """
+        pass
+
+    @abstractmethod
+    def get_entity_docstring(self, node: Node) -> Optional[str]:
+        """
+        Get the entity docstring from the node.
+
+        Args:
+            node (Node): The node.
+
+        Returns:
+            Optional[str]: The entity docstring.
+        """
+        pass
     
     @abstractmethod
     def get_top_level_entity_types(self) -> list[str]:

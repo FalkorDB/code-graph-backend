@@ -18,16 +18,15 @@ class JavaAnalyzer(AbstractAnalyzer):
         super().__init__(Language(tsjava.language()))
 
     def get_entity_name(self, node: Node) -> str:
-        if node.type in ['class_declaration', 'function_declaration']:
+        if node.type in ['class_declaration', 'interface_declaration', 'enum_declaration', 'method_declaration', 'constructor_declaration']:
             return node.child_by_field_name('name').text.decode('utf-8')
         raise ValueError(f"Unknown entity type: {node.type}")
     
     def get_entity_docstring(self, node: Node) -> Optional[str]:
-        if node.type == 'class_declaration':
-            body = node.child_by_field_name('body')
-            if body.child_count > 0 and body.children[0].type == 'expression_statement':
-                docstring_node = body.children[0].child(0)
-                return docstring_node.text.decode('utf-8')
+        if node.type in ['class_declaration', 'interface_declaration', 'enum_declaration', 'method_declaration', 'constructor_declaration']:
+            if node.prev_sibling.type == "block_comment":
+                return node.prev_sibling.text.decode('utf-8')
+            return None
         raise ValueError(f"Unknown entity type: {node.type}")
     
     def find_calls(self, method: Entity):
@@ -48,7 +47,8 @@ class JavaAnalyzer(AbstractAnalyzer):
                 if 'parameter' in captures:
                     for parameter in captures['parameter']:
                         method.add_symbol("parameters", parameter)
-                method.add_symbol("return_type", method_dec.child_by_field_name('type'))
+                if method_dec.type == 'method_declaration':
+                    method.add_symbol("return_type", method_dec.child_by_field_name('type'))
                 type.add_child(method)
                 self.find_calls(method)
 
