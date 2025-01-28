@@ -82,10 +82,12 @@ class SourceAnalyzer():
             for node, entity in file.entities.items():
                 cls = Class(str(file_path), analyzer.get_entity_name(node), analyzer.get_entity_docstring(node), node.start_point.row, node.end_point.row)
                 graph.add_class(cls)
+                entity.id = cls.id
                 graph.connect_entities("DEFINES", file.id, cls.id)
                 for node, entity in entity.children.items():
                     fn = Function(str(file_path), analyzer.get_entity_name(node), analyzer.get_entity_docstring(node), None, node.text.decode("utf-8"), node.start_point.row, node.end_point.row)
                     graph.add_function(fn)
+                    entity.id = fn.id
                     graph.connect_entities("DEFINES", cls.id, fn.id)
 
     def second_pass(self, graph: Graph, lsp: SyncLanguageServer) -> None:
@@ -103,6 +105,20 @@ class SourceAnalyzer():
                 logging.info(f'Processing file: {file_path}')
                 for _, entity in file.entities.items():
                     entity.resolved_symbol(lambda key, symbol: analyzers[file_path.suffix].resolve_symbol(self.files, lsp, file_path, key, symbol))
+                    for key, symbols in entity.resolved_symbols.items():
+                        for symbol in symbols:
+                            if key == "base_class":
+                                graph.connect_entities("EXTENDS", entity.id, symbol.id)
+                            elif key == "implement_interface":
+                                graph.connect_entities("IMPLEMENTS", entity.id, symbol.id)
+                            elif key == "extend_interface":
+                                graph.connect_entities("EXTENDS", entity.id, symbol.id)
+                    for _, child in entity.children.items():
+                        child.resolved_symbol(lambda key, symbol: analyzers[file_path.suffix].resolve_symbol(self.files, lsp, file_path, key, symbol))
+                        for key, symbols in child.resolved_symbols.items():
+                            for symbol in symbols:
+                                if key == "call":
+                                    graph.connect_entities("CALLS", child.id, symbol.id)
 
     def analyze_file(self, path: Path, lsp: SyncLanguageServer, graph: Graph) -> None:
         ext = path.suffix
@@ -134,6 +150,7 @@ class SourceAnalyzer():
 
         config = MultilspyConfig.from_dict({"code_language": "java"})
         logger = MultilspyLogger()
+        logger.logger.setLevel(logging.ERROR)
         lsp = SyncLanguageServer.create(config, logger, path)
 
         # Analyze source files
