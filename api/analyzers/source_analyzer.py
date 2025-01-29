@@ -119,6 +119,10 @@ class SourceAnalyzer():
                             for symbol in symbols:
                                 if key == "call":
                                     graph.connect_entities("CALLS", child.id, symbol.id)
+                                elif key == "return_type":
+                                    graph.connect_entities("RETURNS", child.id, symbol.id)
+                                elif key == "parameters":
+                                    graph.connect_entities("PARAMETERS", child.id, symbol.id)
 
     def analyze_file(self, path: Path, lsp: SyncLanguageServer, graph: Graph) -> None:
         ext = path.suffix
