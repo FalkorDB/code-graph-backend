@@ -21,3 +21,33 @@ def find_child_of_type(node: Node, child_type: str) -> Union[tuple[Node, int], N
             return (child, idx)
 
     return None
+
+def extract_js_function_name(node: Node) -> str:
+    """
+    Extract the function name from a JavaScript function node.
+
+    Args:
+        node (Node): The AST node representing the function.
+
+    Returns:
+        str: The name of the function.
+    """
+    for child in node.children:
+        if child.type == 'identifier':
+            return child.text.decode('utf-8')
+    return ''
+
+def extract_js_class_name(node: Node) -> str:
+    """
+    Extract the class name from a JavaScript class node.
+
+    Args:
+        node (Node): The AST node representing the class.
+
+    Returns:
+        str: The name of the class.
+    """
+    for child in node.children:
+        if child.type == 'identifier':
+            return child.text.decode('utf-8')
+    return ''

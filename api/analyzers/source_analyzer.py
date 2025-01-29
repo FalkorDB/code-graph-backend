@@ -8,6 +8,7 @@ from typing import Optional, List
 from ..graph import Graph
 from .c.analyzer import CAnalyzer
 from .python.analyzer import PythonAnalyzer
+from .javascript.analyzer import JavaScriptAnalyzer
 
 import logging
 # Configure logging
@@ -16,7 +17,8 @@ logging.basicConfig(level=logging.DEBUG, format='%(filename)s - %(asctime)s - %(
 # List of available analyzers
 analyzers = {'.c': CAnalyzer(),
              '.h': CAnalyzer(),
-             '.py': PythonAnalyzer()}
+             '.py': PythonAnalyzer(),
+             '.js': JavaScriptAnalyzer()}
 
 class SourceAnalyzer():
 
