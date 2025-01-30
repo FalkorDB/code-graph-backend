@@ -86,7 +86,7 @@ class JavaAnalyzer(AbstractAnalyzer):
 
     def resolve_method(self, files: dict[Path, File], lsp: SyncLanguageServer, path: Path, node: Node) -> list[Entity]:
         res = []
-        for file, resolved_node in self.resolve(files, lsp, path, node):
+        for file, resolved_node in self.resolve(files, lsp, path, node.child_by_field_name('name')):
             method_dec = self.find_parent(resolved_node, ['method_declaration', 'constructor_declaration', 'class_declaration', 'interface_declaration', 'enum_declaration'])
             if method_dec.type in ['class_declaration', 'interface_declaration', 'enum_declaration']:
                 continue
