@@ -181,7 +181,10 @@ class SourceAnalyzer():
 
         logging.info("Done analyzing path")
 
-    def analyze_local_repository(self, path: str, ignore: Optional[list[str]] = []) -> Graph:
+    def analyze_local_repository(self, path: str, ignore: Optional[list[str]] = None) -> Graph:
+        if ignore is None:
+            ignore = []
+        # ... (rest of the function implementation)
         """
         Analyze a local Git repository.
 
