@@ -44,11 +44,10 @@ def create_app():
         @wraps(f)
         def decorated_function(*args, **kwargs):
             public = os.environ.get("CODE_GRAPH_PUBLIC", "0")  # Get public access setting
-            if not public:
+            if public != "1":
                 return jsonify(message="Unauthorized"), 401
             return f(*args, **kwargs)
         return decorated_function
-
     @app.route('/graph_entities', methods=['GET'])
     @token_required  # Apply token authentication decorator
     def graph_entities():
