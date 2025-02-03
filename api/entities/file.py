@@ -22,9 +22,9 @@ class File:
         self.tree = tree
         self.entities: dict[Node, Entity] = {}
 
-    def add_entity(self, type: Entity):
-        self.parent = self
-        self.entities[type.node] = type
+    def add_entity(self, entity: Entity):
+        entity.parent = self
+        self.entities[entity.node] = entity
 
     def __str__(self) -> str:
         return f"path: {self.path}"
