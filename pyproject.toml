@@ -17,6 +17,7 @@ tree-sitter-python = "^0.23.6"
 tree-sitter-java = "^0.23.5"
 flask = "^3.1.0"
 python-dotenv = "^1.0.1"
+multilspy = {git = "https://github.com/AviAvni/multilspy.git", rev = "update-pydantic"}
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.2.0"
