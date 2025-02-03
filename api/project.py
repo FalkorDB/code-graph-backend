@@ -76,7 +76,9 @@ class Project():
 
         return cls(name, path, url)
 
-    def analyze_sources(self, ignore: Optional[List[str]] = []) -> Graph:
+    def analyze_sources(self, ignore: Optional[List[str]] = None) -> Graph:
+        if ignore is None:
+            ignore = []
         analyzer = SourceAnalyzer()
         analyzer.analyze_local_folder(self.path, self.graph, ignore)
 
