@@ -1,3 +1,4 @@
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Optional
 
@@ -24,8 +25,12 @@ logging.basicConfig(level=logging.DEBUG, format='%(filename)s - %(asctime)s - %(
 analyzers: dict[str, AbstractAnalyzer] = {
     # '.c': CAnalyzer(),
     # '.h': CAnalyzer(),
-    # '.py': PythonAnalyzer(),
+    '.py': PythonAnalyzer(),
     '.java': JavaAnalyzer()}
+
+class NullLanguageServer:
+    def start_server(self):
+        return nullcontext()
 
 class SourceAnalyzer():
     def __init__(self) -> None:
@@ -38,15 +43,16 @@ class SourceAnalyzer():
     
     def create_hierarchy(self, analyzer: AbstractAnalyzer, file: File):
         types = analyzer.get_top_level_entity_types()
-        alternative_types = " ".join([f"({type})" for type in types])
-        query = analyzer.language.query(f"[{alternative_types}] @top_level_entity")
-        captures = query.captures(file.tree.root_node)
-        if 'top_level_entity' in captures:
-            for top_level_entity in captures['top_level_entity']:
-                entity = Entity(top_level_entity)
+        stack = [file.tree.root_node]
+        while stack:
+            node = stack.pop()
+            if node.type in types:
+                entity = Entity(node)
                 analyzer.add_symbols(entity)
                 analyzer.add_children(entity)
                 file.add_entity(entity)
+            else:
+                stack.extend(node.children)
 
     def first_pass(self, path: Path, ignore: list[str], graph: Graph) -> None:
         """
@@ -61,6 +67,11 @@ class SourceAnalyzer():
             # Skip none supported files
             if file_path.suffix not in analyzers:
                 logging.info(f"Skipping none supported file {file_path}")
+                continue
+
+            # Skip ignored files
+            if any([i in str(file_path) for i in ignore]):
+                logging.info(f"Skipping ignored file {file_path}")
                 continue
 
             logging.info(f'Processing file: {file_path}')
@@ -90,7 +101,7 @@ class SourceAnalyzer():
                     entity.id = fn.id
                     graph.connect_entities("DEFINES", cls.id, fn.id)
 
-    def second_pass(self, graph: Graph, lsp: SyncLanguageServer) -> None:
+    def second_pass(self, graph: Graph, path: Path) -> None:
         """
         Recursively analyze the contents of a directory.
 
@@ -100,11 +111,24 @@ class SourceAnalyzer():
             executor (concurrent.futures.Executor): The executor to run tasks concurrently.
         """
 
-        with lsp.start_server():
+        logger = MultilspyLogger()
+        logger.logger.setLevel(logging.ERROR)
+        lsps = {}
+        if any(path.rglob('*.java')):
+            config = MultilspyConfig.from_dict({"code_language": "java"})
+            lsps[".java"] = SyncLanguageServer.create(config, logger, str(path))
+        else:
+            lsps[".java"] = NullLanguageServer()
+        if any(path.rglob('*.py')):
+            config = MultilspyConfig.from_dict({"code_language": "python"})
+            lsps[".py"] = SyncLanguageServer.create(config, logger, str(path))
+        else:
+            lsps[".py"] = NullLanguageServer()
+        with lsps[".java"].start_server(), lsps[".py"].start_server():
             for file_path, file in self.files.items():
                 logging.info(f'Processing file: {file_path}')
                 for _, entity in file.entities.items():
-                    entity.resolved_symbol(lambda key, symbol: analyzers[file_path.suffix].resolve_symbol(self.files, lsp, file_path, key, symbol))
+                    entity.resolved_symbol(lambda key, symbol: analyzers[file_path.suffix].resolve_symbol(self.files, lsps[file_path.suffix], file_path, key, symbol))
                     for key, symbols in entity.resolved_symbols.items():
                         for symbol in symbols:
                             if key == "base_class":
@@ -114,7 +138,7 @@ class SourceAnalyzer():
                             elif key == "extend_interface":
                                 graph.connect_entities("EXTENDS", entity.id, symbol.id)
                     for _, child in entity.children.items():
-                        child.resolved_symbol(lambda key, symbol: analyzers[file_path.suffix].resolve_symbol(self.files, lsp, file_path, key, symbol))
+                        child.resolved_symbol(lambda key, symbol: analyzers[file_path.suffix].resolve_symbol(self.files, lsps[file_path.suffix], file_path, key, symbol))
                         for key, symbols in child.resolved_symbols.items():
                             for symbol in symbols:
                                 if key == "call":
@@ -124,22 +148,22 @@ class SourceAnalyzer():
                                 elif key == "parameters":
                                     graph.connect_entities("PARAMETERS", child.id, symbol.id)
 
-    def analyze_file(self, path: Path, lsp: SyncLanguageServer, graph: Graph) -> None:
-        ext = path.suffix
-        logging.info(f"analyze_file: path: {path}")
+    def analyze_file(self, file_path: Path, path: Path, graph: Graph) -> None:
+        ext = file_path.suffix
+        logging.info(f"analyze_file: path: {file_path}")
         logging.info(f"analyze_file: ext: {ext}")
         if ext not in analyzers:
             return
 
-        self.first_pass(path, [], graph)
-        self.second_pass(graph, lsp)
+        self.first_pass(file_path, [], graph)
+        self.second_pass(graph, path)
 
-    def analyze_sources(self, path: Path, ignore: list[str], graph: Graph, lsp: SyncLanguageServer) -> None:
+    def analyze_sources(self, path: Path, ignore: list[str], graph: Graph) -> None:
         # First pass analysis of the source code
         self.first_pass(path, ignore, graph)
 
         # Second pass analysis of the source code
-        self.second_pass(graph, lsp)
+        self.second_pass(graph, path)
 
     def analyze_local_folder(self, path: str, g: Graph, ignore: Optional[list[str]] = []) -> None:
         """
@@ -152,13 +176,8 @@ class SourceAnalyzer():
 
         logging.info(f"Analyzing local folder {path}")
 
-        config = MultilspyConfig.from_dict({"code_language": "java"})
-        logger = MultilspyLogger()
-        logger.logger.setLevel(logging.ERROR)
-        lsp = SyncLanguageServer.create(config, logger, path)
-
         # Analyze source files
-        self.analyze_sources(Path(path), ignore, g, lsp)
+        self.analyze_sources(Path(path), ignore, g)
 
         logging.info("Done analyzing path")
 

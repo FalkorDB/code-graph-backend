@@ -157,7 +157,7 @@ def build_commit_graph(
             for new_file in added:
                 # New file been added
                 logging.info(f"Introducing a new source file: {new_file}")
-                analyzer.analyze_file(new_file, g)
+                analyzer.analyze_file(new_file, Path(path), g)
 
         queries, params = g.clear_backlog()
 
@@ -231,7 +231,7 @@ def build_commit_graph(
             for new_file in added:
                 # New file been added
                 logging.info(f"Introducing a new source file: {new_file}")
-                analyzer.analyze_file(new_file, g)
+                analyzer.analyze_file(new_file, Path(path), g)
 
         queries, params = g.clear_backlog()
 

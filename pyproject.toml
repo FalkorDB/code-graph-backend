@@ -6,13 +6,13 @@ authors = ["Roi Lipman <roilipman@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.9"
-graphrag-sdk = { version = "^0.4.1", extras = ["litellm"] }
-tree-sitter = "^0.23.2"
+python = "^3.10"
+graphrag-sdk = { version = "^0.5.0", extras = ["litellm"] }
+tree-sitter = "^0.24.0"
 validators = "^0.34.0"
-GitPython = "^3.1.43"
-falkordb = "^1.0.5"
-tree-sitter-c = "^0.23.2"
+GitPython = "^3.1.44"
+falkordb = "^1.0.10"
+tree-sitter-c = "^0.23.4"
 tree-sitter-python = "^0.23.6"
 tree-sitter-java = "^0.23.5"
 flask = "^3.1.0"

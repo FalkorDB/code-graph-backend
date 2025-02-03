@@ -1,14 +1,13 @@
 from ..utils import *
 from pathlib import Path
 from ...entities import *
-from ...graph import Graph
 from typing import Optional
 from ..analyzer import AbstractAnalyzer
 
 from multilspy import SyncLanguageServer
 
 import tree_sitter_java as tsjava
-from tree_sitter import Language, Node, Point
+from tree_sitter import Language, Node
 
 import logging
 logger = logging.getLogger('code_graph')

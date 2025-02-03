@@ -13,12 +13,15 @@ class AbstractAnalyzer(ABC):
         self.parser = Parser(language)
 
     def find_parent(self, node: Node, parent_types: list) -> Node:
-        while node.type not in parent_types:
+        while node and node.type not in parent_types:
             node = node.parent
         return node
 
     def resolve(self, files: dict[Path, File], lsp: SyncLanguageServer, path: Path, node: Node) -> list[tuple[File, Node]]:
-        return [(files[Path(location['absolutePath'])], files[Path(location['absolutePath'])].tree.root_node.descendant_for_point_range(Point(location['range']['start']['line'], location['range']['start']['character']), Point(location['range']['end']['line'], location['range']['end']['character']))) for location in lsp.request_definition(str(path), node.start_point.row, node.start_point.column) if Path(location['absolutePath']) in files]
+        try:
+            return [(files[Path(location['absolutePath'])], files[Path(location['absolutePath'])].tree.root_node.descendant_for_point_range(Point(location['range']['start']['line'], location['range']['start']['character']), Point(location['range']['end']['line'], location['range']['end']['character']))) for location in lsp.request_definition(str(path), node.start_point.row, node.start_point.column) if location and Path(location['absolutePath']) in files]
+        except Exception as e:
+            return []
     
     @abstractmethod
     def get_entity_name(self, node: Node) -> str:
