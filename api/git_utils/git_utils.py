@@ -64,7 +64,10 @@ def classify_changes(diff, ignore_list: List[str]) -> tuple[list[Path], list[Pat
 def build_commit_graph(
         path: str,
         repo_name: str,
-        ignore_list: Optional[List[str]] = []
+def build_commit_graph(path: str, repo_name: str, ignore_list: Optional[List[str]] = None) -> GitGraph:
+    if ignore_list is None:
+        ignore_list = []
+    # ... rest of the function implementation ...
     ) -> GitGraph:
     """
     Builds a graph representation of the git commit history.
