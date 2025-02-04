@@ -92,7 +92,8 @@ class JavaAnalyzer(AbstractAnalyzer):
         res = []
         for file, resolved_node in self.resolve(files, lsp, path, node):
             type_dec = self.find_parent(resolved_node, ['class_declaration', 'interface_declaration', 'enum_declaration'])
-            res.append(file.entities[type_dec])
+            if type_dec in file.entities:
+                res.append(file.entities[type_dec])
         return res
 
     def resolve_method(self, files: dict[Path, File], lsp: SyncLanguageServer, path: Path, node: Node) -> list[Entity]:
