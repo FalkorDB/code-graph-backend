@@ -39,16 +39,34 @@ class SourceAnalyzer():
         """
         return list(analyzers.keys())
     
-    def create_hierarchy(self, analyzer: AbstractAnalyzer, file: File):
-        types = analyzer.get_top_level_entity_types()
+    def create_entity_hierarchy(self, entity: Entity, file: File, analyzer: AbstractAnalyzer, graph: Graph):
+        types = analyzer.get_entity_types()
+        stack = list(entity.node.children)
+        while stack:
+            node = stack.pop()
+            if node.type in types:
+                child = Entity(node)
+                child.id = graph.add_entity(analyzer.get_entity_label(node), analyzer.get_entity_name(node), analyzer.get_entity_docstring(node), str(file.path), node.start_point.row, node.end_point.row, {})
+                analyzer.add_symbols(child)
+                file.add_entity(entity)
+                entity.add_child(child)
+                graph.connect_entities("DEFINES", entity.id, child.id)
+                self.create_entity_hierarchy(child, file, analyzer, graph)
+            else:
+                stack.extend(node.children)
+
+    def create_hierarchy(self, file: File, analyzer: AbstractAnalyzer, graph: Graph):
+        types = analyzer.get_entity_types()
         stack = [file.tree.root_node]
         while stack:
             node = stack.pop()
             if node.type in types:
                 entity = Entity(node)
+                entity.id = graph.add_entity(analyzer.get_entity_label(node), analyzer.get_entity_name(node), analyzer.get_entity_docstring(node), str(file.path), node.start_point.row, node.end_point.row, {})
                 analyzer.add_symbols(entity)
-                analyzer.add_children(entity)
                 file.add_entity(entity)
+                graph.connect_entities("DEFINES", file.id, entity.id)
+                self.create_entity_hierarchy(entity, file, analyzer, graph)
             else:
                 stack.extend(node.children)
 
@@ -85,15 +103,8 @@ class SourceAnalyzer():
             self.files[file_path] = file
 
             # Walk thought the AST
-            self.create_hierarchy(analyzer, file)
-
             graph.add_file(file)
-            for node, entity in file.entities.items():
-                entity.id = graph.add_entity(analyzer.get_entity_label(node), analyzer.get_entity_name(node), analyzer.get_entity_docstring(node), str(file_path), node.start_point.row, node.end_point.row, {})
-                graph.connect_entities("DEFINES", file.id, entity.id)
-                for child_node, child_entity in entity.children.items():
-                    child_entity.id = graph.add_entity(analyzer.get_entity_label(child_node), analyzer.get_entity_name(child_node), analyzer.get_entity_docstring(child_node), str(file_path), child_node.start_point.row, child_node.end_point.row, {"src": child_node.text.decode("utf-8")})
-                    graph.connect_entities("DEFINES", entity.id, child_entity.id)
+            self.create_hierarchy(file, analyzer, graph)
 
     def second_pass(self, graph: Graph, path: Path) -> None:
         """

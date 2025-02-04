@@ -41,25 +41,8 @@ class PythonAnalyzer(AbstractAnalyzer):
         if 'reference.call' in captures:
             for caller in captures['reference.call']:
                 method.add_symbol("call", caller)
-
-    def find_methods(self, type: Entity):
-        query = self.language.query("(function_definition) @definition.method")
-        captures = query.captures(type.node)
-        if 'definition.method' in captures:
-            for method_dec in captures['definition.method']:
-                method = Entity(method_dec)
-                query = self.language.query("(typed_parameter type: (_) @parameter)")
-                captures = query.captures(method_dec)
-                if 'parameter' in captures:
-                    for parameter in captures['parameter']:
-                        method.add_symbol("parameters", parameter)
-                return_type = method_dec.child_by_field_name('return_type')
-                if return_type:
-                    method.add_symbol("return_type", return_type)
-                type.add_child(method)
-                self.find_calls(method)
     
-    def get_top_level_entity_types(self) -> list[str]:
+    def get_entity_types(self) -> list[str]:
         return ['class_definition', 'function_definition']
     
     def add_symbols(self, entity: Entity) -> None:
@@ -71,9 +54,8 @@ class PythonAnalyzer(AbstractAnalyzer):
                 if 'base_class' in base_classes_captures:
                     for base_class in base_classes_captures['base_class']:
                         entity.add_symbol("base_class", base_class)
-
-    def add_children(self, entity: Entity) -> None:
-        self.find_methods(entity)
+        elif entity.node.type == 'function_definition':
+            self.find_calls(entity)
 
     def resolve_type(self, files: dict[Path, File], lsp: SyncLanguageServer, path: Path, node: Node) -> list[Entity]:
         res = []
@@ -88,13 +70,8 @@ class PythonAnalyzer(AbstractAnalyzer):
             method_dec = self.find_parent(resolved_node, ['function_definition', 'class_definition'])
             if not method_dec:
                 continue
-            if method_dec.type == 'class_definition':
+            if method_dec in file.entities:
                 res.append(file.entities[method_dec])
-            elif method_dec in file.entities:
-                res.append(file.entities[method_dec])
-            else:
-                type_dec = self.find_parent(method_dec, ['class_definition'])
-                res.append(file.entities[type_dec].children[method_dec])
         return res
     
     def resolve_symbol(self, files: dict[Path, File], lsp: SyncLanguageServer, path: Path, key: str, symbol: Node) -> Entity:

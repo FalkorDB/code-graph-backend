@@ -63,7 +63,7 @@ class AbstractAnalyzer(ABC):
         pass
     
     @abstractmethod
-    def get_top_level_entity_types(self) -> list[str]:
+    def get_entity_types(self) -> list[str]:
         """
         Get the top level entity types for the language.
 
@@ -80,17 +80,6 @@ class AbstractAnalyzer(ABC):
 
         Args:
             entity (Entity): The entity to add symbols to.
-        """
-
-        pass
-
-    @abstractmethod
-    def add_children(self, entity: Entity) -> None:
-        """
-        Add children to the entity.
-
-        Args:
-            entity (Entity): The entity to add children to.
         """
 
         pass

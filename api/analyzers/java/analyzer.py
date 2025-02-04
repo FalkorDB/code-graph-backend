@@ -47,24 +47,8 @@ class JavaAnalyzer(AbstractAnalyzer):
             for caller in captures['reference.call']:
                 method.add_symbol("call", caller)
 
-    def find_methods(self, type: Entity):
-        query = self.language.query("[(method_declaration) (constructor_declaration)] @definition.method")
-        captures = query.captures(type.node)
-        if 'definition.method' in captures:
-            for method_dec in captures['definition.method']:
-                method = Entity(method_dec)
-                query = self.language.query("(formal_parameters (formal_parameter type: (_) @parameter))")
-                captures = query.captures(method_dec)
-                if 'parameter' in captures:
-                    for parameter in captures['parameter']:
-                        method.add_symbol("parameters", parameter)
-                if method_dec.type == 'method_declaration':
-                    method.add_symbol("return_type", method_dec.child_by_field_name('type'))
-                type.add_child(method)
-                self.find_calls(method)
-
-    def get_top_level_entity_types(self) -> list[str]:
-        return ['class_declaration', 'interface_declaration', 'enum_declaration']
+    def get_entity_types(self) -> list[str]:
+        return ['class_declaration', 'interface_declaration', 'enum_declaration', 'method_declaration', 'constructor_declaration']
     
     def add_symbols(self, entity: Entity) -> None:
         if entity.node.type == 'class_declaration':
@@ -84,9 +68,8 @@ class JavaAnalyzer(AbstractAnalyzer):
             if 'type' in extends_captures:
                 for interface in extends_captures['type']:
                     entity.add_symbol("extend_interface", interface)
-
-    def add_children(self, entity: Entity) -> None:
-        self.find_methods(entity)
+        elif entity.node.type in ['method_declaration', 'constructor_declaration']:
+            self.find_calls(entity)
 
     def resolve_type(self, files: dict[Path, File], lsp: SyncLanguageServer, path: Path, node: Node) -> list[Entity]:
         res = []
