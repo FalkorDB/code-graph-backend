@@ -24,9 +24,6 @@ class Entity:
         self.children[child.node] = child
 
     def resolved_symbol(self, f: Callable[[str, Node], list[Self]]):
-        for _, child in self.children.items():
-            child.resolved_symbol(f)
-
         for key, symbols in self.symbols.items():
             self.resolved_symbols[key] = set()
             for symbol in symbols:
