@@ -38,14 +38,7 @@ class JavaAnalyzer(AbstractAnalyzer):
             if node.prev_sibling.type == "block_comment":
                 return node.prev_sibling.text.decode('utf-8')
             return None
-        raise ValueError(f"Unknown entity type: {node.type}")
-    
-    def find_calls(self, method: Entity):
-        query = self.language.query("(method_invocation) @reference.call")
-        captures = query.captures(method.node)
-        if 'reference.call' in captures:
-            for caller in captures['reference.call']:
-                method.add_symbol("call", caller)
+        raise ValueError(f"Unknown entity type: {node.type}")        
 
     def get_entity_types(self) -> list[str]:
         return ['class_declaration', 'interface_declaration', 'enum_declaration', 'method_declaration', 'constructor_declaration']
@@ -69,7 +62,18 @@ class JavaAnalyzer(AbstractAnalyzer):
                 for interface in extends_captures['type']:
                     entity.add_symbol("extend_interface", interface)
         elif entity.node.type in ['method_declaration', 'constructor_declaration']:
-            self.find_calls(entity)
+            query = self.language.query("(method_invocation) @reference.call")
+            captures = query.captures(entity.node)
+            if 'reference.call' in captures:
+                for caller in captures['reference.call']:
+                    entity.add_symbol("call", caller)
+            if entity.node.type == 'method_declaration':
+                query = self.language.query("(formal_parameters (formal_parameter type: (_) @parameter))")
+                captures = query.captures(entity.node)
+                if 'parameter' in captures:
+                    for parameter in captures['parameter']:
+                        entity.add_symbol("parameters", parameter)
+                entity.add_symbol("return_type", entity.node.child_by_field_name('type'))
 
     def resolve_type(self, files: dict[Path, File], lsp: SyncLanguageServer, path: Path, node: Node) -> list[Entity]:
         res = []
@@ -85,8 +89,8 @@ class JavaAnalyzer(AbstractAnalyzer):
             method_dec = self.find_parent(resolved_node, ['method_declaration', 'constructor_declaration', 'class_declaration', 'interface_declaration', 'enum_declaration'])
             if method_dec.type in ['class_declaration', 'interface_declaration', 'enum_declaration']:
                 continue
-            type_dec = self.find_parent(method_dec, ['class_declaration', 'interface_declaration', 'enum_declaration'])
-            res.append(file.entities[type_dec].children[method_dec])
+            if method_dec in file.entities:
+                res.append(file.entities[method_dec])
         return res
     
     def resolve_symbol(self, files: dict[Path, File], lsp: SyncLanguageServer, path: Path, key: str, symbol: Node) -> Entity:

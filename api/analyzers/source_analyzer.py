@@ -48,7 +48,7 @@ class SourceAnalyzer():
                 child = Entity(node)
                 child.id = graph.add_entity(analyzer.get_entity_label(node), analyzer.get_entity_name(node), analyzer.get_entity_docstring(node), str(file.path), node.start_point.row, node.end_point.row, {})
                 analyzer.add_symbols(child)
-                file.add_entity(entity)
+                file.add_entity(child)
                 entity.add_child(child)
                 graph.connect_entities("DEFINES", entity.id, child.id)
                 self.create_entity_hierarchy(child, file, analyzer, graph)
@@ -142,16 +142,12 @@ class SourceAnalyzer():
                                 graph.connect_entities("IMPLEMENTS", entity.id, symbol.id)
                             elif key == "extend_interface":
                                 graph.connect_entities("EXTENDS", entity.id, symbol.id)
-                    for _, child in entity.children.items():
-                        child.resolved_symbol(lambda key, symbol: analyzers[file_path.suffix].resolve_symbol(self.files, lsps[file_path.suffix], file_path, key, symbol))
-                        for key, symbols in child.resolved_symbols.items():
-                            for symbol in symbols:
-                                if key == "call":
-                                    graph.connect_entities("CALLS", child.id, symbol.id)
-                                elif key == "return_type":
-                                    graph.connect_entities("RETURNS", child.id, symbol.id)
-                                elif key == "parameters":
-                                    graph.connect_entities("PARAMETERS", child.id, symbol.id)
+                            elif key == "call":
+                                graph.connect_entities("CALLS", entity.id, symbol.id)
+                            elif key == "return_type":
+                                graph.connect_entities("RETURNS", entity.id, symbol.id)
+                            elif key == "parameters":
+                                graph.connect_entities("PARAMETERS", entity.id, symbol.id)
 
     def analyze_file(self, file_path: Path, path: Path, graph: Graph) -> None:
         ext = file_path.suffix
