@@ -33,14 +33,7 @@ class PythonAnalyzer(AbstractAnalyzer):
                 docstring_node = body.children[0].child(0)
                 return docstring_node.text.decode('utf-8')
             return None
-        raise ValueError(f"Unknown entity type: {node.type}")
-    
-    def find_calls(self, method: Entity):
-        query = self.language.query("(call) @reference.call")
-        captures = query.captures(method.node)
-        if 'reference.call' in captures:
-            for caller in captures['reference.call']:
-                method.add_symbol("call", caller)
+        raise ValueError(f"Unknown entity type: {node.type}")        
     
     def get_entity_types(self) -> list[str]:
         return ['class_definition', 'function_definition']
@@ -55,7 +48,19 @@ class PythonAnalyzer(AbstractAnalyzer):
                     for base_class in base_classes_captures['base_class']:
                         entity.add_symbol("base_class", base_class)
         elif entity.node.type == 'function_definition':
-            self.find_calls(entity)
+            query = self.language.query("(call) @reference.call")
+            captures = query.captures(entity.node)
+            if 'reference.call' in captures:
+                for caller in captures['reference.call']:
+                    entity.add_symbol("call", caller)
+            query = self.language.query("(typed_parameter type: (_) @parameter)")
+            captures = query.captures(entity.node)
+            if 'parameter' in captures:
+                for parameter in captures['parameter']:
+                    entity.add_symbol("parameters", parameter)
+            return_type = entity.node.child_by_field_name('return_type')
+            if return_type:
+                entity.add_symbol("return_type", return_type)
 
     def resolve_type(self, files: dict[Path, File], lsp: SyncLanguageServer, path: Path, node: Node) -> list[Entity]:
         res = []
