@@ -24,6 +24,19 @@ class AbstractAnalyzer(ABC):
             return []
     
     @abstractmethod
+    def get_entity_label(self, node: Node) -> str:
+        """
+        Get the entity label from the node.
+
+        Args:
+            node (Node): The node.
+        
+        Returns:
+            str: The entity label.
+        """
+        pass
+
+    @abstractmethod
     def get_entity_name(self, node: Node) -> str:
         """
         Get the entity name from the node.

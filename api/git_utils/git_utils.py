@@ -1,10 +1,6 @@
 import os
-import time
 import json
-import redis
 import logging
-import threading
-import subprocess
 from ..info import *
 from git import Repo
 from pathlib import Path

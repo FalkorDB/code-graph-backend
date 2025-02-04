@@ -1,5 +1,4 @@
 from multilspy import SyncLanguageServer
-from ..utils import *
 from pathlib import Path
 from ...entities import *
 from typing import Optional
@@ -14,6 +13,13 @@ logger = logging.getLogger('code_graph')
 class PythonAnalyzer(AbstractAnalyzer):
     def __init__(self) -> None:
         super().__init__(Language(tspython.language()))
+
+    def get_entity_label(self, node: Node) -> str:
+        if node.type == 'class_definition':
+            return "Class"
+        elif node.type == 'function_definition':
+            return "Function"
+        raise ValueError(f"Unknown entity type: {node.type}")
 
     def get_entity_name(self, node: Node) -> str:
         if node.type in ['class_definition', 'function_definition']:

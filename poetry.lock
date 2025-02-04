@@ -553,6 +553,55 @@ traitlets = ">=4"
 test = ["pytest"]
 
 [[package]]
+name = "ct3"
+version = "3.4.0"
+description = "Cheetah is a template engine and code generation tool"
+optional = false
+python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,>=2.7"
+groups = ["main"]
+files = [
+    {file = "CT3-3.4.0-cp27-cp27mu-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:5c172a254e4b35d67cd344e091576c96592f660171d1222ce9074f2fee6476a2"},
+    {file = "CT3-3.4.0-cp27-cp27mu-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:f0cd53f145b7a5cbed337a0b571d962f454fe672e0b850f4206b8ea60e939bef"},
+    {file = "CT3-3.4.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:086f74ebd23298383af5d60ec7fc209bdc566a546524cc5435aa99feccaba0bf"},
+    {file = "CT3-3.4.0-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:7637b3e1c40c25424ce41f4f64782ebb3610258e03e8e1bb2fd12c0fb575dce1"},
+    {file = "CT3-3.4.0-cp310-cp310-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:8c2e832777ee313489ff13107d99ce5ce14a403fbc2020bd51306d2c02a25855"},
+    {file = "CT3-3.4.0-cp310-cp310-win_amd64.whl", hash = "sha256:0bc637e01d5a36cbd4c734d556cf6e1379358117e71f6fc7861c3a22fbe65f96"},
+    {file = "CT3-3.4.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:154331b062a786bf46840c189828cbe2ed7f6c4f3bf1ca68a0204792b04bc963"},
+    {file = "CT3-3.4.0-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:ced0af498c1eab326c6409ac22e2af30e1071742eaed06082952f626eef23f0f"},
+    {file = "CT3-3.4.0-cp311-cp311-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:d2bb6e2725955366d460ccbbeb71106b8cae4a1034f9760b43367c736a163446"},
+    {file = "CT3-3.4.0-cp311-cp311-win_amd64.whl", hash = "sha256:e599f2d18105d43146b37cc7d3a3bc8e503f6d2b09d0ebc86edaa15ae42a28a8"},
+    {file = "CT3-3.4.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:cb8d67c54065884b1f23d8c26f3323f02288e6e70ea613499cab5944dc766683"},
+    {file = "CT3-3.4.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:98dcc2c6569a1fa0e396569a392fe62a276329278f9680bf226960025fc294f5"},
+    {file = "CT3-3.4.0-cp312-cp312-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:488a639d10f3f3d62c98153f1ac7484dc7f5e364a2bc07dbb27ffc4693199b7d"},
+    {file = "CT3-3.4.0-cp312-cp312-win_amd64.whl", hash = "sha256:2f6ca88c4c45155b75383a36bf4e502959d175285d8f510a4593887a2b7a3b59"},
+    {file = "CT3-3.4.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:6f81ab7393005d0722b79c221433b4291154ce86f14129dac90e421db8d87a96"},
+    {file = "CT3-3.4.0-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:da49c759244a85e7ffe4ebd927d5659e13d299670a2aaabf366c2f3590a0053f"},
+    {file = "CT3-3.4.0-cp313-cp313-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:1d174196e76d30cfe4d6ddcbbfe3891c82f68bf06cb764f05bfae47e4692f97c"},
+    {file = "CT3-3.4.0-cp313-cp313-win_amd64.whl", hash = "sha256:ab3d4082fb90efd5e400e94bc55d75f49964e1b53c9b776462f8c21c71801de3"},
+    {file = "CT3-3.4.0-cp35-cp35m-manylinux1_x86_64.whl", hash = "sha256:d7b9a04cfae26c02920d42a73b035fdea8afcfcc55446f21debc1217b18dcb6b"},
+    {file = "CT3-3.4.0-cp35-cp35m-win_amd64.whl", hash = "sha256:b7f346ab370ca251b52fb1a5942cfe7aeef3ef76c873c605b11e122f99b00e2c"},
+    {file = "CT3-3.4.0-cp36-cp36m-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:c33327743c6f7b813b3af29456da8b45c6d65f108449ff11e1f07c0ee2365641"},
+    {file = "CT3-3.4.0-cp36-cp36m-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:304fc55eece64152024d4605299dd480baf8be24f17a2c2973473915eb5e395c"},
+    {file = "CT3-3.4.0-cp36-cp36m-win_amd64.whl", hash = "sha256:962d3ed8bb1cca00d2d7901737418b9a25019dfc44584baa83eba15778383541"},
+    {file = "CT3-3.4.0-cp37-cp37m-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:4d510cc795bbb8f4981ce286bca9c7409d742cffc42c713e168e4e95a198b83c"},
+    {file = "CT3-3.4.0-cp37-cp37m-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:b3410aa07888fae83612cec06a1c1107fdebdeb258b0192d58f7de28095d5fca"},
+    {file = "CT3-3.4.0-cp37-cp37m-win_amd64.whl", hash = "sha256:1f4c61beacbd473da964d672ef555378874eb7b6bf81c32b507742c931289baf"},
+    {file = "CT3-3.4.0-cp38-cp38-macosx_11_0_arm64.whl", hash = "sha256:65776759d9021c50943cf8ac524ddc029247ec10b7b01e303b8b80ca8f58b9be"},
+    {file = "CT3-3.4.0-cp38-cp38-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:279975359843d965d9f7ee61289c125baa8c4febf729b580e77ec0f35bb6b15c"},
+    {file = "CT3-3.4.0-cp38-cp38-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:04056f9e2498164ec8fc567b6c91850987daa8a586f6846600c2182eef4e3f8a"},
+    {file = "CT3-3.4.0-cp38-cp38-win_amd64.whl", hash = "sha256:4fbb0d74f514e1a744c8a752c70f317b2413470ad04314926894fcb33f6607f6"},
+    {file = "CT3-3.4.0-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:98a57fed5ab4cc45a017e3c777494acf93dad5ce0166653d41bf9a80ffe7e89b"},
+    {file = "CT3-3.4.0-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:d0bd57c6935904ffdd3ea5fdf53d7bf060157b24e1422dd190295400f0ad8612"},
+    {file = "CT3-3.4.0-cp39-cp39-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:9d299fd001d470f48321f7b172b214dd32f5dba40998d875e736c9ac6d9efe9c"},
+    {file = "CT3-3.4.0-cp39-cp39-win_amd64.whl", hash = "sha256:eb2b6b645d4b43e82cb058205a8393aba2800900d525a505fec3101b56faf126"},
+    {file = "ct3-3.4.0.tar.gz", hash = "sha256:ddc493b775b02b09737b1fb628a973dbe9aa91d694045a6764a8e3f5296fa1eb"},
+]
+
+[package.extras]
+filters = ["markdown"]
+markdown = ["markdown"]
+
+[[package]]
 name = "debugpy"
 version = "1.8.12"
 description = "An implementation of the Debug Adapter Protocol for Python"
@@ -1161,6 +1210,25 @@ files = [
     {file = "itsdangerous-2.2.0-py3-none-any.whl", hash = "sha256:c6242fc49e35958c8b15141343aa660db5fc54d4f13a1db01a3f5891b98700ef"},
     {file = "itsdangerous-2.2.0.tar.gz", hash = "sha256:e0050c0b7da1eea53ffaf149c0cfbb5c6e2e2b69c4bef22c81fa6eb73e5f6173"},
 ]
+
+[[package]]
+name = "javatools"
+version = "1.6.0"
+description = "Tools for working with Java class files and JARs"
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "javatools-1.6.0-py2-none-any.whl", hash = "sha256:f6c025260d06719e7b1c241112b5d779b87b324aecab4cf40dc37a77daed95c0"},
+    {file = "javatools-1.6.0-py3-none-any.whl", hash = "sha256:b92ac541baa10c623aeba50f3e2041781d80bbdaea2624e7d730a240b5f379df"},
+]
+
+[package.dependencies]
+CT3 = "*"
+six = "*"
+
+[package.extras]
+crypto = ["M2Crypto (>=0.26.0)"]
 
 [[package]]
 name = "jedi"
@@ -3257,4 +3325,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "d211ea8fcf86054bb61520897f02a5c3bb9e53aea3850d24f2dc7ee7846040ca"
+content-hash = "9d646b05112ec62c8ef904449138f595644790d9771938b7d89c83793effbdb4"

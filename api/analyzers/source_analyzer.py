@@ -2,14 +2,12 @@ from contextlib import nullcontext
 from pathlib import Path
 from typing import Optional
 
-from api.entities.cls import Class
 from api.entities.entity import Entity
 from api.entities.file import File
-from api.entities.function import Function
 
 from ..graph import Graph
 from .analyzer import AbstractAnalyzer
-from .c.analyzer import CAnalyzer
+# from .c.analyzer import CAnalyzer
 from .java.analyzer import JavaAnalyzer
 from .python.analyzer import PythonAnalyzer
 
@@ -91,15 +89,11 @@ class SourceAnalyzer():
 
             graph.add_file(file)
             for node, entity in file.entities.items():
-                cls = Class(str(file_path), analyzer.get_entity_name(node), analyzer.get_entity_docstring(node), node.start_point.row, node.end_point.row)
-                graph.add_class(cls)
-                entity.id = cls.id
-                graph.connect_entities("DEFINES", file.id, cls.id)
-                for node, entity in entity.children.items():
-                    fn = Function(str(file_path), analyzer.get_entity_name(node), analyzer.get_entity_docstring(node), None, node.text.decode("utf-8"), node.start_point.row, node.end_point.row)
-                    graph.add_function(fn)
-                    entity.id = fn.id
-                    graph.connect_entities("DEFINES", cls.id, fn.id)
+                entity.id = graph.add_entity(analyzer.get_entity_label(node), analyzer.get_entity_name(node), analyzer.get_entity_docstring(node), str(file_path), node.start_point.row, node.end_point.row, {})
+                graph.connect_entities("DEFINES", file.id, entity.id)
+                for child_node, child_entity in entity.children.items():
+                    child_entity.id = graph.add_entity(analyzer.get_entity_label(child_node), analyzer.get_entity_name(child_node), analyzer.get_entity_docstring(child_node), str(file_path), child_node.start_point.row, child_node.end_point.row, {"src": child_node.text.decode("utf-8")})
+                    graph.connect_entities("DEFINES", entity.id, child_entity.id)
 
     def second_pass(self, graph: Graph, path: Path) -> None:
         """

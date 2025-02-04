@@ -1,16 +1,12 @@
 import os
-import datetime
 from api import *
 from pathlib import Path
-from typing import Optional
 from functools import wraps
-from falkordb import FalkorDB
 from dotenv import load_dotenv
-from urllib.parse import urlparse
 
 from api.project import Project
 from .auto_complete import prefix_search
-from flask import Flask, request, jsonify, abort
+from flask import Flask, request, jsonify
 
 # Load environment variables from .env file
 load_dotenv()
