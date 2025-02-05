@@ -21,7 +21,7 @@ class Test_C_Analyzer(unittest.TestCase):
         path = str(path)
 
         g = Graph("c")
-        analyzer.analyze(path, g)
+        analyzer.analyze_local_folder(path, g)
 
         f = g.get_file('', 'src.c', '.c')
         self.assertEqual(File('', 'src.c', '.c'), f)

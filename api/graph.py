@@ -1,7 +1,7 @@
 import os
 import time
 from .entities import *
-from typing import Dict, Optional, List, Tuple
+from typing import Optional
 from falkordb import FalkorDB, Path, Node, QueryResult
 
 # Configure the logger
@@ -17,7 +17,7 @@ def graph_exists(name: str):
 
     return name in db.list_graphs()
 
-def get_repos() -> List[str]:
+def get_repos() -> list[str]:
     """
         List processed repositories
     """
@@ -105,12 +105,12 @@ class Graph():
         self.backlog = None
         logging.debug("Backlog disabled")
 
-    def clear_backlog(self) -> Tuple[List[str], List[dict]]:
+    def clear_backlog(self) -> tuple[list[str], list[dict]]:
         """
         Clears and returns the backlog of queries and parameters.
 
         Returns:
-            Tuple[List[str], List[dict]]: A tuple containing two lists:
+            tuple[list[str], list[dict]]: A tuple containing two lists:
             - The first list contains the backlog of queries.
             - The second list contains the backlog of query parameters.
         """
@@ -194,7 +194,7 @@ class Graph():
         return sub_graph
 
 
-    def get_neighbors(self, node_ids: List[int], rel: Optional[str] = None, lbl: Optional[str] = None) -> Dict[str, List[dict]]:
+    def get_neighbors(self, node_ids: list[int], rel: Optional[str] = None, lbl: Optional[str] = None) -> dict[str, list[dict]]:
         """
         Fetch the neighbors of a given nodes in the graph based on relationship type and/or label.
 
@@ -240,58 +240,42 @@ class Graph():
             logging.error(f"Error fetching neighbors for node {node_ids}: {e}")
             return {'nodes': [], 'edges': []}
 
-
-    def _class_from_node(self, n: Node) -> Class:
+    def add_entity(self, label: str, name: str, doc: str, path: str, src_start: int, src_end: int, props: dict) -> int:
         """
-        Create a Class from a graph node
-        """
-
-        doc       = n.properties.get('doc')
-        name      = n.properties.get('name')
-        path      = n.properties.get('path')
-        src_end   = n.properties.get('src_end')
-        src_start = n.properties.get('src_start')
-
-        c = Class(path, name, doc, src_start, src_end)
-        c.id = n.id
-
-        return c
-
-    def add_class(self, c: Class) -> None:
-        """
-        Adds a class node to the graph database.
+        Adds a node to the graph database.
 
         Args:
-            c (Class): The Class object to be added.
         """
 
-        q = """MERGE (c:Class:Searchable {name: $name, path: $path, src_start: $src_start,
-                               src_end: $src_end})
+        q = f"""MERGE (c:{label}:Searchable {{name: $name, path: $path, src_start: $src_start,
+                               src_end: $src_end}})
                SET c.doc = $doc
+               SET c += $props
                RETURN c"""
 
         params = {
-            'doc': c.doc,
-            'name': c.name,
-            'path': c.path,
-            'src_start': c.src_start,
-            'src_end': c.src_end,
+            'doc': doc,
+            'name': name,
+            'path': path,
+            'src_start': src_start,
+            'src_end': src_end,
+            'props': props
         }
 
         res  = self._query(q, params)
         node = res.result_set[0][0]
-        c.id = node.id
+        return node.id
 
-    def get_class_by_name(self, class_name: str) -> Optional[Class]:
+    def get_class_by_name(self, class_name: str) -> Optional[Node]:
         q = "MATCH (c:Class) WHERE c.name = $name RETURN c LIMIT 1"
         res = self._query(q, {'name': class_name}).result_set
 
         if len(res) == 0:
             return None
 
-        return self._class_from_node(res[0][0])
+        return res[0][0]
 
-    def get_class(self, class_id: int) -> Optional[Class]:
+    def get_class(self, class_id: int) -> Optional[Node]:
         q = """MATCH (c:Class)
                WHERE ID(c) = $class_id
                RETURN c"""
@@ -301,65 +285,10 @@ class Graph():
         if len(res.result_set) == 0:
             return None
 
-        c = res.result_set[0][0]
-        return self._class_from_node(c)
-
-    def _function_from_node(self, n: Node) -> Function:
-        """
-        Create a Function from a graph node
-        """
-
-        src       = n.properties.get('src')
-        doc       = n.properties.get('doc')
-        path      = n.properties.get('path')
-        name      = n.properties.get('name')
-        args      = n.properties.get('args')
-        src_end   = n.properties.get('src_end')
-        ret_type  = n.properties.get('ret_type')
-        src_start = n.properties.get('src_start')
-
-        f = Function(path, name, doc, ret_type, src, src_start, src_end)
-        for arg in args:
-            name  = arg[0]
-            type_ = arg[1]
-            f.add_argument(name, type_)
-
-        f.id = n.id
-
-        return f
-
-    def add_function(self, func: Function) -> None:
-        """
-        Adds a function node to the graph database.
-
-        Args:
-            func (Function): The Function object to be added.
-        """
-
-        q = """MERGE (f:Function:Searchable {path: $path, name: $name,
-                                  src_start: $src_start, src_end: $src_end})
-               SET f.args = $args, f.ret_type = $ret_type, f.src = $src, f.doc = $doc
-               RETURN f"""
-
-        # Prepare arguments in a more straightforward manner
-        args = [[arg.name, arg.type] for arg in func.args]
-        params = {
-            'src': func.src,
-            'doc': func.doc,
-            'path': func.path,
-            'name': func.name,
-            'src_start': func.src_start,
-            'src_end': func.src_end,
-            'args': args,
-            'ret_type': func.ret_type
-        }
-
-        res     = self._query(q, params)
-        node    = res.result_set[0][0]
-        func.id = node.id
+        return res.result_set[0][0]
 
     # set functions metadata
-    def set_functions_metadata(self, ids: List[int], metadata: List[dict]) -> None:
+    def set_functions_metadata(self, ids: list[int], metadata: list[dict]) -> None:
         assert(len(ids) == len(metadata))
 
         # TODO: Match (f:Function)
@@ -375,24 +304,22 @@ class Graph():
         self._query(q, params)
 
     # get all functions defined by file
-    def get_functions_in_file(self, path: str, name: str, ext: str) -> List[Function]:
+    def get_functions_in_file(self, path: str, name: str, ext: str) -> list[Node]:
         q = """MATCH (f:File {path: $path, name: $name, ext: $ext})
                MATCH (f)-[:DEFINES]->(func:Function)
                RETURN collect(func)"""
 
         params = {'path': path, 'name': name, 'ext': ext}
-        funcs = self._query(q, params).result_set[0][0]
-        
-        return [self._function_from_node(n) for n in funcs]
+        return self._query(q, params).result_set[0][0]
 
-    def get_function_by_name(self, name: str) -> Optional[Function]:
+    def get_function_by_name(self, name: str) -> Optional[Node]:
         q = "MATCH (f:Function) WHERE f.name = $name RETURN f LIMIT 1"
         res = self._query(q, {'name': name}).result_set
 
         if len(res) == 0:
             return None
 
-        return self._function_from_node(res[0][0])
+        return res[0][0]
 
     def prefix_search(self, prefix: str) -> str:
         """
@@ -430,7 +357,7 @@ class Graph():
         return completions
 
 
-    def get_function(self, func_id: int) -> Optional[Function]:
+    def get_function(self, func_id: int) -> Optional[Node]:
         q = """MATCH (f:Function)
                WHERE ID(f) = $func_id
                RETURN f"""
@@ -440,59 +367,45 @@ class Graph():
         if len(res.result_set) == 0:
             return None
 
-        node = res.result_set[0][0]
+        return res.result_set[0][0]
 
-        return self._function_from_node(node)
-
-    def function_calls(self, func_id: int) -> List[Function]:
+    def function_calls(self, func_id: int) -> list[Node]:
         q = """MATCH (f:Function)
                WHERE ID(f) = $func_id
                MATCH (f)-[:CALLS]->(callee)
-               RETURN callee"""
+               RETURN collect(callee)"""
 
         res = self._query(q, {'func_id': func_id})
 
-        callees = []
-        for row in res.result_set:
-            callee = row[0]
-            callees.append(self._function_from_node(callee))
-
-        return callees
+        return res.result_set[0][0]
     
-    def function_called_by(self, func_id: int) -> List[Function]:
+    def function_called_by(self, func_id: int) -> list[Node]:
         q = """MATCH (f:Function)
                WHERE ID(f) = $func_id
                MATCH (caller)-[:CALLS]->(f)
-               RETURN caller"""
+               RETURN collect(caller)"""
 
         res = self._query(q, {'func_id': func_id})
 
-        callers = []
-        for row in res.result_set:
-            caller = row[0]
-            callers.append(self._function_from_node(caller))
-
-        return callers
+        return res.result_set[0][0]
 
     def add_file(self, file: File) -> None:
         """
         Add a file node to the graph database.
 
         Args:
-            file_path (str): Path of the file.
-            file_name (str): Name of the file.
-            file_ext (str): Extension of the file.
+            file (File): The file.
         """
 
         q = """MERGE (f:File:Searchable {path: $path, name: $name, ext: $ext})
                RETURN f"""
-        params = {'path': file.path, 'name': file.name, 'ext': file.ext}
+        params = {'path': str(file.path), 'name': file.path.name, 'ext': file.path.suffix}
 
         res     = self._query(q, params)
         node    = res.result_set[0][0]
         file.id = node.id
 
-    def delete_files(self, files: List[dict]) -> tuple[str, dict, List[int]]:
+    def delete_files(self, files: list[dict]) -> tuple[str, dict, list[int]]:
         """
         Deletes file(s) from the graph in addition to any other entity
         defined in the file
@@ -607,67 +520,16 @@ class Graph():
         params = {'caller_id': caller_id, 'callee_id': callee_id, 'pos': pos}
         self._query(q, params)
 
-    def _struct_from_node(self, n: Node) -> Struct:
-        """
-        Create a Struct from a graph node
-        """
-
-        doc       = n.properties.get('doc')
-        name      = n.properties.get('name')
-        path      = n.properties.get('path')
-        src_end   = n.properties.get('src_end')
-        src_start = n.properties.get('src_start')
-        fields    = n.properties.get('fields')
-
-        s = Struct(path, name, doc, src_start, src_end)
-
-        # Populate struct fields
-        if fields is not None:
-            for field in fields:
-                field_name = field[0]
-                field_type = field[1]
-                s.add_field(field_name, field_type)
-
-        s.id = n.id
-
-        return s
-
-    def add_struct(self, s: Struct) -> None:
-        """
-        Adds a struct node to the graph database.
-
-        Args:
-            s (Struct): The Struct object to be added.
-        """
-
-        q = """MERGE (s:Struct:Searchable {name: $name, path: $path, src_start: $src_start,
-                               src_end: $src_end})
-               SET s.doc = $doc, s.fields = $fields
-               RETURN s"""
-
-        params = {
-            'doc': s.doc,
-            'name': s.name,
-            'path': s.path,
-            'src_start': s.src_start,
-            'src_end': s.src_end,
-            'fields': s.fields
-        }
-
-        res = self._query(q, params)
-        node = res.result_set[0][0]
-        s.id = node.id
-
-    def get_struct_by_name(self, struct_name: str) -> Optional[Struct]:
+    def get_struct_by_name(self, struct_name: str) -> Optional[Node]:
         q = "MATCH (s:Struct) WHERE s.name = $name RETURN s LIMIT 1"
         res = self._query(q, {'name': struct_name}).result_set
 
         if len(res) == 0:
             return None
 
-        return self._struct_from_node(res[0][0])
+        return res[0][0]
 
-    def get_struct(self, struct_id: int) -> Optional[Struct]:
+    def get_struct(self, struct_id: int) -> Optional[Node]:
         q = """MATCH (s:Struct)
                WHERE ID(s) = $struct_id
                RETURN s"""
@@ -678,7 +540,7 @@ class Graph():
             return None
 
         s = res.result_set[0][0]
-        return self._struct_from_node(s)
+        return s
 
     def rerun_query(self, q: str, params: dict) -> QueryResult:
         """
@@ -687,7 +549,7 @@ class Graph():
 
         return self._query(q, params)
 
-    def find_paths(self, src: int, dest: int) -> List[Path]:
+    def find_paths(self, src: int, dest: int) -> list[Path]:
         """
         Find all paths between the source (src) and destination (dest) nodes.
 
@@ -752,7 +614,7 @@ class Graph():
         # Return the statistics
         return {'node_count': node_count, 'edge_count': edge_count}
 
-    def unreachable_entities(self, lbl: Optional[str], rel: Optional[str]) -> List[dict]:
+    def unreachable_entities(self, lbl: Optional[str], rel: Optional[str]) -> list[dict]:
         lbl = f": {lbl}" if lbl else ""
         rel = f": {rel}" if rel else ""
 

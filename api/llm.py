@@ -168,10 +168,47 @@ def _define_ontology() -> Ontology:
                 ),
             ]
         )
+    
+    interface = Entity(
+            label="Interface",
+            attributes=[
+                Attribute(
+                    name="name",
+                    attr_type=AttributeType.STRING,
+                    required=True,
+                    unique=True,
+                ),
+                Attribute(
+                    name="path",
+                    attr_type=AttributeType.STRING,
+                    required=False,
+                    unique=False,
+                ),
+                Attribute(
+                    name="src_start",
+                    attr_type=AttributeType.NUMBER,
+                    required=False,
+                    unique=False,
+                ),
+                Attribute(
+                    name="src_end",
+                    attr_type=AttributeType.NUMBER,
+                    required=False,
+                    unique=False,
+                ),
+                Attribute(
+                    name="doc",
+                    attr_type=AttributeType.STRING,
+                    required=False,
+                    unique=False,
+                ),
+            ]
+        )
 
     ontology.add_entity(cls)
     ontology.add_entity(file)
     ontology.add_entity(function)
+    ontology.add_entity(interface)
 
     # Relations:
     # File     - DEFINES -> Class
@@ -187,6 +224,8 @@ def _define_ontology() -> Ontology:
     ontology.add_relation(Relation("DEFINES", "File",     "Class"))
     ontology.add_relation(Relation("DEFINES", "File",     "Function"))
     ontology.add_relation(Relation("DEFINES", "Class",    "Class"))
+    ontology.add_relation(Relation("EXTENDS", "Class",    "Class"))
+    ontology.add_relation(Relation("IMPLEMENTS", "Class",    "Interface"))
     ontology.add_relation(Relation("DEFINES", "Class",    "Function"))
     ontology.add_relation(Relation("DEFINES", "Function", "Function"))
 
