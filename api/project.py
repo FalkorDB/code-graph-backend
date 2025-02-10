@@ -86,8 +86,8 @@ class Project():
         try:
             # Save processed commit hash to the DB
             repo = Repository(self.path)
-            current_commit = repo.head.commit
-            set_repo_commit(self.name, current_commit.hexsha)
+            current_commit = repo.walk(repo.head.target).__next__()
+            set_repo_commit(self.name, current_commit.hex)
         except Exception:
             # Probably not .git folder is missing
             pass
