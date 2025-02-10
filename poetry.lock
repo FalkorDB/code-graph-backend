@@ -330,7 +330,6 @@ description = "Foreign Function Interface for Python calling C code."
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "implementation_name == \"pypy\""
 files = [
     {file = "cffi-1.17.1-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:df8b1c11f177bc2313ec4b2d46baec87a5f3e71fc8b45dab2ee7cae86d9aba14"},
     {file = "cffi-1.17.1-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:8f2cdc858323644ab277e9bb925ad72ae0e67f69e804f4898c070998d50b1a67"},
@@ -911,40 +910,6 @@ test = ["aiohttp (!=4.0.0a0,!=4.0.0a1)", "numpy", "pytest", "pytest-asyncio (!=0
 test-downstream = ["aiobotocore (>=2.5.4,<3.0.0)", "dask-expr", "dask[dataframe,test]", "moto[server] (>4,<5)", "pytest-timeout", "xarray"]
 test-full = ["adlfs", "aiohttp (!=4.0.0a0,!=4.0.0a1)", "cloudpickle", "dask", "distributed", "dropbox", "dropboxdrivefs", "fastparquet", "fusepy", "gcsfs", "jinja2", "kerchunk", "libarchive-c", "lz4", "notebook", "numpy", "ocifs", "pandas", "panel", "paramiko", "pyarrow", "pyarrow (>=1)", "pyftpdlib", "pygit2", "pytest", "pytest-asyncio (!=0.22.0)", "pytest-benchmark", "pytest-cov", "pytest-mock", "pytest-recording", "pytest-rerunfailures", "python-snappy", "requests", "smbprotocol", "tqdm", "urllib3", "zarr", "zstandard"]
 tqdm = ["tqdm"]
-
-[[package]]
-name = "gitdb"
-version = "4.0.12"
-description = "Git Object Database"
-optional = false
-python-versions = ">=3.7"
-groups = ["main"]
-files = [
-    {file = "gitdb-4.0.12-py3-none-any.whl", hash = "sha256:67073e15955400952c6565cc3e707c554a4eea2e428946f7a4c162fab9bd9bcf"},
-    {file = "gitdb-4.0.12.tar.gz", hash = "sha256:5ef71f855d191a3326fcfbc0d5da835f26b13fbcba60c32c21091c349ffdb571"},
-]
-
-[package.dependencies]
-smmap = ">=3.0.1,<6"
-
-[[package]]
-name = "gitpython"
-version = "3.1.44"
-description = "GitPython is a Python library used to interact with Git repositories"
-optional = false
-python-versions = ">=3.7"
-groups = ["main"]
-files = [
-    {file = "GitPython-3.1.44-py3-none-any.whl", hash = "sha256:9e0e10cda9bed1ee64bc9a6de50e7e38a9c9943241cd7f585f6df3ed28011110"},
-    {file = "gitpython-3.1.44.tar.gz", hash = "sha256:c87e30b26253bf5418b01b0660f818967f3c503193838337fe5e573331249269"},
-]
-
-[package.dependencies]
-gitdb = ">=4.0.1,<5"
-
-[package.extras]
-doc = ["sphinx (>=7.1.2,<7.2)", "sphinx-autodoc-typehints", "sphinx_rtd_theme"]
-test = ["coverage[toml]", "ddt (>=1.1.1,!=1.4.3)", "mock", "mypy", "pre-commit", "pytest (>=7.3.1)", "pytest-cov", "pytest-instafail", "pytest-mock", "pytest-sugar", "typing-extensions"]
 
 [[package]]
 name = "graphrag-sdk"
@@ -2013,7 +1978,6 @@ description = "C parser in Python"
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "implementation_name == \"pypy\""
 files = [
     {file = "pycparser-2.22-py3-none-any.whl", hash = "sha256:c3702b6d3dd8c7abc1afa565d7e63d53a1d0bd86cdc24edd75470f4de499cfcc"},
     {file = "pycparser-2.22.tar.gz", hash = "sha256:491c8be9c040f5390f5bf44a5b07752bd07f56edf992381b05c701439eec10f6"},
@@ -2152,6 +2116,50 @@ files = [
 
 [package.dependencies]
 typing-extensions = ">=4.6.0,<4.7.0 || >4.7.0"
+
+[[package]]
+name = "pygit2"
+version = "1.17.0"
+description = "Python bindings for libgit2."
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+files = [
+    {file = "pygit2-1.17.0-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:cbe1a3354a3eff0f4e842abcff73b24455ba7205ac959f146d7cb8dcd63cfa45"},
+    {file = "pygit2-1.17.0-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:578d78fc97d5c16b1ad44c1e2fda093628c3f29793b42be68b93a46ce7a662a0"},
+    {file = "pygit2-1.17.0-cp310-cp310-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:e59de6138787aa3a5365557fb1ad427d3e877868917e0910257fb11f71f3c736"},
+    {file = "pygit2-1.17.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:66431dba77977b9010fac580eaefcc7567ea0955b030d8e8472fdce0f1a7c5f0"},
+    {file = "pygit2-1.17.0-cp310-cp310-musllinux_1_2_x86_64.whl", hash = "sha256:877ce82239de45301fa9953d50b41c46a5300cf7b3993db86bde64e08521a506"},
+    {file = "pygit2-1.17.0-cp310-cp310-win32.whl", hash = "sha256:8b7921016cbec166083206daca20d00f2358b18178122e1b0d1932b410296de1"},
+    {file = "pygit2-1.17.0-cp310-cp310-win_amd64.whl", hash = "sha256:5724683b3d239cc1457b9800d9d7988a00cd0cb1797d5caa6f46d16f3f74f1ca"},
+    {file = "pygit2-1.17.0-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:39e7087e2affdba2530d1fe1ec04c27fa85db405be84e1cd4759891045324a31"},
+    {file = "pygit2-1.17.0-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:d0ef5c3634317295268ef84b99e8acae37cb2f8b17d966b318c79e5211bf78d3"},
+    {file = "pygit2-1.17.0-cp311-cp311-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:1ad964b2eea81e0c99d05c6ec0ec8b5715d3d0c99b3b6e09abcdb57c57701592"},
+    {file = "pygit2-1.17.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:cce8db6aa40361270b14e1adb3a8e7d4606b9b53088e27321472c9a92f922648"},
+    {file = "pygit2-1.17.0-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:136b1ea44107fb6a3a58e7b1322227e83101bff50a929816d8653a38e0ed0e07"},
+    {file = "pygit2-1.17.0-cp311-cp311-win32.whl", hash = "sha256:5ffce0772167e5c436be57ee3ef0fb421c864657911aeb1a97618e1dd9f8b574"},
+    {file = "pygit2-1.17.0-cp311-cp311-win_amd64.whl", hash = "sha256:0809029cf804f343abdc9eaeaf9d915f9dbf320d79078c20138a3bf642583365"},
+    {file = "pygit2-1.17.0-cp312-cp312-macosx_10_13_universal2.whl", hash = "sha256:f7224d89a7dda7290e458393941e500c8682f375f41e6d80ee423958a5d4013d"},
+    {file = "pygit2-1.17.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:9ae1967b0c8a2438b3b0e4a63307b5c22c80024a2f09b28d14dfde0001fed8dc"},
+    {file = "pygit2-1.17.0-cp312-cp312-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:507343fa142a82028c8448c2626317dc19885985aba8ea27d381777ac484eefb"},
+    {file = "pygit2-1.17.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:6bc04917a680591c6e801df912d7fb722c253b5ac68178ff37b5666dafd06999"},
+    {file = "pygit2-1.17.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:7bb1b623cbd16962c3a1ec7f8e1012fa224c9e9642758c65e8e656ecc7ff1574"},
+    {file = "pygit2-1.17.0-cp312-cp312-win32.whl", hash = "sha256:3029331ddf56a6908547278ab4c354b2d6932eb6a53be81e0093adc98a0ae540"},
+    {file = "pygit2-1.17.0-cp312-cp312-win_amd64.whl", hash = "sha256:1011236bab7317b82e6cbc3dff4be8467923b1dcf2ffe28bf2e64805dcb37749"},
+    {file = "pygit2-1.17.0-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:ce938e7a4fdfc816ffceb62babad65fb62e1a5ad261e880b9a072e8da144ccca"},
+    {file = "pygit2-1.17.0-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:61ff2c8b0fc96fdf45a7a5239cc262b0293a5171f68d67eea239a42c3b2226cb"},
+    {file = "pygit2-1.17.0-cp313-cp313-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:8101aa723c292892ba46303b19487a9fb0de50d9e30f4c1c2a76e3383b6e4b6d"},
+    {file = "pygit2-1.17.0-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:36e3e9225e3f01bb6a2d4589c126900bbc571cd0876ca9c01372a6e3d3693c0e"},
+    {file = "pygit2-1.17.0-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:614cfddbf048900da19b016787f153d44ea9fd7ef80f9e03a77024aa1555d5f4"},
+    {file = "pygit2-1.17.0-cp313-cp313-win32.whl", hash = "sha256:1391762153af9715ed1d0586e3f207c518f03f5874e1f5b8e398697d006a0a82"},
+    {file = "pygit2-1.17.0-cp313-cp313-win_amd64.whl", hash = "sha256:d677d6fb85c426c5f5f8409bdc5a2e391016c99f73b97779b284c4ad25aa75fa"},
+    {file = "pygit2-1.17.0-pp310-pypy310_pp73-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:c491db4f71fd5d814023f2ad89ad7023c15738bcbe0807acc2313026600bf1b1"},
+    {file = "pygit2-1.17.0-pp310-pypy310_pp73-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:89ff254387d23d107dd2b542907d248a3a988e3be8cda99bcc8af04f56e6e5cf"},
+    {file = "pygit2-1.17.0.tar.gz", hash = "sha256:fa2bc050b2c2d3e73b54d6d541c792178561a344f07e409f532d5bb97ac7b894"},
+]
+
+[package.dependencies]
+cffi = ">=1.17.0"
 
 [[package]]
 name = "pygls"
@@ -2786,18 +2794,6 @@ files = [
 ]
 
 [[package]]
-name = "smmap"
-version = "5.0.2"
-description = "A pure Python implementation of a sliding window memory map manager"
-optional = false
-python-versions = ">=3.7"
-groups = ["main"]
-files = [
-    {file = "smmap-5.0.2-py3-none-any.whl", hash = "sha256:b30115f0def7d7531d22a0fb6502488d879e75b260a9db4d0819cfb25403af5e"},
-    {file = "smmap-5.0.2.tar.gz", hash = "sha256:26ea65a03958fa0c8a1c7e8c7a58fdc77221b8910f6be2131affade476898ad5"},
-]
-
-[[package]]
 name = "sniffio"
 version = "1.3.1"
 description = "Sniff out which async library your code is running under"
@@ -3325,4 +3321,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "9d646b05112ec62c8ef904449138f595644790d9771938b7d89c83793effbdb4"
+content-hash = "a1a88f7ed29288c2be707233bb8d478a74d2af6529066cf2be21f950f611a759"

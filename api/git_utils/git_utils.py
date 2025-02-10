@@ -1,8 +1,10 @@
 import os
 import json
 import logging
+
+from pygit2 import Commit
 from ..info import *
-from git import Repo
+from pygit2.repository import Repository
 from pathlib import Path
 from ..graph import Graph
 from .git_graph import GitGraph
@@ -85,9 +87,9 @@ def build_commit_graph(path: str, repo_name: str, ignore_list: Optional[List[str
 
     # Initialize with the current commit
     # Save current git for later restoration
-    repo = Repo('.')
-    current_commit = repo.head.commit
-    current_commit_hexsha = current_commit.hexsha
+    repo = Repository('.')
+    current_commit = repo.walk(repo.head.target).__next__()
+    current_commit_hexsha = current_commit.hex
 
     # Add commit to the git graph
     git_graph.add_commit(current_commit)
@@ -106,7 +108,7 @@ def build_commit_graph(path: str, repo_name: str, ignore_list: Optional[List[str
         git_graph.add_commit(parent_commit)
 
         # connect child parent commits relation
-        git_graph.connect_commits(child_commit.hexsha, parent_commit.hexsha)
+        git_graph.connect_commits(child_commit.hex, parent_commit.hex)
 
         # Represents the changes going backward!
         # e.g. which files need to be deleted when moving back one commit
@@ -126,7 +128,7 @@ def build_commit_graph(path: str, repo_name: str, ignore_list: Optional[List[str
 
         # Checkout prev commit
         logging.info(f"Checking out commit: {parent_commit.hexsha}")
-        repo.git.checkout(parent_commit.hexsha)
+        repo.checkout(parent_commit.hex)
 
         #-----------------------------------------------------------------------
         # Apply changes going backwards
@@ -165,15 +167,15 @@ def build_commit_graph(path: str, repo_name: str, ignore_list: Optional[List[str
 
             # Log transitions
             logging.debug(f"""Save graph transition from
-                             commit: {child_commit.hexsha}
+                             commit: {child_commit.hex}
                              to
-                             commit: {parent_commit.hexsha}
+                             commit: {parent_commit.hex}
                              Queries: {queries}
                              Parameters: {params}
                           """)
 
-            git_graph.set_parent_transition(child_commit.hexsha,
-                                            parent_commit.hexsha, queries, params)
+            git_graph.set_parent_transition(child_commit.hex,
+                                            parent_commit.hex, queries, params)
         # advance to the next commit
         child_commit = parent_commit
 
@@ -183,24 +185,24 @@ def build_commit_graph(path: str, repo_name: str, ignore_list: Optional[List[str
 
     logging.info("Computing transition queries moving forward")
     parent_commit = child_commit
-    while parent_commit.hexsha != current_commit_hexsha:
-        child_commit = git_graph.get_child_commit(parent_commit.hexsha)
-        child_commit = repo.commit(child_commit['hash'])
+    while parent_commit.hex != current_commit_hexsha:
+        child_commit = git_graph.get_child_commit(parent_commit.hex)
+        child_commit = repo.walk(child_commit['hash']).__next__()
 
         # Represents the changes going forward
         # e.g. which files need to be deleted when moving forward one commit
 
         # Process file changes in this commit
         logging.info(f"""Computing diff between
-            child {parent_commit.hexsha}: {parent_commit.message}
-            and {child_commit.hexsha}: {child_commit.message}""")
+            child {parent_commit.hex}: {parent_commit.message}
+            and {child_commit.hex}: {child_commit.message}""")
 
-        diff = parent_commit.diff(child_commit)
+        diff = repo.diff(parent_commit, child_commit)
         added, deleted, modified = classify_changes(diff, ignore_list)
 
         # Checkout child commit
-        logging.info(f"Checking out commit: {child_commit.hexsha}")
-        repo.git.checkout(child_commit.hexsha)
+        logging.info(f"Checking out commit: {child_commit.hex}")
+        repo.checkout(child_commit.hex)
 
         #-----------------------------------------------------------------------
         # Apply changes going forward
@@ -239,15 +241,15 @@ def build_commit_graph(path: str, repo_name: str, ignore_list: Optional[List[str
 
             # Log transitions
             logging.debug(f"""Save graph transition from
-                             commit: {parent_commit.hexsha}
+                             commit: {parent_commit.hex}
                              to
-                             commit: {child_commit.hexsha}
+                             commit: {child_commit.hex}
                              Queries: {queries}
                              Parameters: {params}
                           """)
 
-            git_graph.set_child_transition(child_commit.hexsha,
-                                            parent_commit.hexsha, queries, params)
+            git_graph.set_child_transition(child_commit.hex,
+                                            parent_commit.hex, queries, params)
         # advance to the child_commit
         parent_commit = child_commit
 

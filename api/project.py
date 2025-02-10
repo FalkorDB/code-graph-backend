@@ -3,7 +3,7 @@ import shutil
 import logging
 import validators
 import subprocess
-from git import Repo
+from pygit2.repository import Repository
 from .info import *
 from shlex import quote
 from pathlib import Path
@@ -70,7 +70,7 @@ class Project():
 
         # adjust url
         # 'git@github.com:FalkorDB/code_graph.git'
-        url  = Repo(path).remotes[0].url
+        url  = Repository(path).remotes[0].url
         url = url.replace("git@", "https://").replace(":", "/").replace(".git", "")
 
         name = path.name
@@ -85,7 +85,7 @@ class Project():
 
         try:
             # Save processed commit hash to the DB
-            repo = Repo(self.path)
+            repo = Repository(self.path)
             current_commit = repo.head.commit
             set_repo_commit(self.name, current_commit.hexsha)
         except Exception:

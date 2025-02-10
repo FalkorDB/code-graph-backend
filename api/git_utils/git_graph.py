@@ -1,8 +1,9 @@
 import os
 import logging
-from git import Commit
 from falkordb import FalkorDB, Node
 from typing import List, Optional
+
+from pygit2 import Commit
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(filename)s - %(asctime)s - %(levelname)s - %(message)s')
@@ -112,7 +113,7 @@ class GitGraph():
         self.g.query(q, params)
 
 
-    def set_parent_transition(self, child: str, parent: str, queries: [str], params: [str]) -> None:
+    def set_parent_transition(self, child: str, parent: str, queries: list[str], params: list[str]) -> None:
         """
             Sets the queries and parameters needed to transition the code-graph
             from the child commit to the parent commit
@@ -126,7 +127,7 @@ class GitGraph():
         self.g.query(q, _params)
 
 
-    def set_child_transition(self, child: str, parent: str, queries: [str], params: [str]) -> None:
+    def set_child_transition(self, child: str, parent: str, queries: list[str], params: list[str]) -> None:
         """
             Sets the queries and parameters needed to transition the code-graph
             from the parent commit to the child commit

@@ -10,7 +10,6 @@ python = "^3.10"
 graphrag-sdk = { version = "^0.5.0", extras = ["litellm"] }
 tree-sitter = "^0.24.0"
 validators = "^0.34.0"
-GitPython = "^3.1.44"
 falkordb = "^1.0.10"
 tree-sitter-c = "^0.23.4"
 tree-sitter-python = "^0.23.6"
@@ -19,6 +18,7 @@ flask = "^3.1.0"
 python-dotenv = "^1.0.1"
 multilspy = {git = "https://github.com/AviAvni/multilspy.git", rev = "update-pydantic"}
 javatools = "^1.6.0"
+pygit2 = "^1.17.0"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.2.0"
