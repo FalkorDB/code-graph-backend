@@ -441,6 +441,3 @@ def switch_commit():
     }
 
     return jsonify(response), 200
-
-
-app.run(debug=True)
