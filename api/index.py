@@ -1,18 +1,15 @@
 import os
-import datetime
 from api import *
-from typing import Optional
+from pathlib import Path
 from functools import wraps
-from falkordb import FalkorDB
 from dotenv import load_dotenv
-from urllib.parse import urlparse
+
+from api.project import Project
 from .auto_complete import prefix_search
-from flask import Flask, request, jsonify, abort
+from flask import Flask, request, jsonify
 
 # Load environment variables from .env file
 load_dotenv()
-
-app = Flask(__name__)
 
 # Configure the logger
 import logging
@@ -23,18 +20,31 @@ logger = logging.getLogger(__name__)
 # Function to verify the token
 SECRET_TOKEN = os.getenv('SECRET_TOKEN')
 def verify_token(token):
-    return token == SECRET_TOKEN
+    return token == SECRET_TOKEN or (token is None and SECRET_TOKEN is None)
 
 # Decorator to protect routes with token authentication
 def token_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         token = request.headers.get('Authorization')  # Get token from header
-        if not token or not verify_token(token):
+        if not verify_token(token):
             return jsonify(message="Unauthorized"), 401
         return f(*args, **kwargs)
     return decorated_function
 
+app = Flask(__name__)
+
+# Decorator to protect routes with public access
+def public_access(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        public = os.environ.get("CODE_GRAPH_PUBLIC", "0")  # Get public access setting
+        if public != "1":
+            return jsonify(message="Unauthorized"), 401
+        return f(*args, **kwargs)
+    return decorated_function
+  
+  
 @app.route('/', methods=['GET'])
 def index():
     """
@@ -91,8 +101,8 @@ def graph_entities():
         # Initialize the graph with the provided repo and credentials
         g = Graph(repo)
 
-        # Retrieve a sub-graph of up to 100 entities
-        sub_graph = g.get_sub_graph(100)
+        # Retrieve a sub-graph of up to 500 entities
+        sub_graph = g.get_sub_graph(500)
 
         logging.info(f"Successfully retrieved sub-graph for repo: {repo}")
         response = {
@@ -107,51 +117,47 @@ def graph_entities():
         return jsonify({"status": "Internal server error"}), 500
 
 
-@app.route('/get_neighbors', methods=['GET'])
+@app.route('/get_neighbors', methods=['POST'])
 @token_required  # Apply token authentication decorator
 def get_neighbors():
     """
-    Endpoint to get neighbors of a specific node in the graph.
-    Expects 'repo' and 'node_id' as query parameters.
+    Endpoint to get neighbors of a nodes list in the graph.
+    Expects 'repo' and 'node_ids' as body parameters.
 
     Returns:
         JSON response containing neighbors or error messages.
     """
 
+    # Get JSON data from the request
+    data = request.get_json()
+
     # Get query parameters
-    repo    = request.args.get('repo')
-    node_id = request.args.get('node_id')
+    repo    = data.get('repo')
+    node_ids = data.get('node_ids')
 
     # Validate 'repo' parameter
     if not repo:
         logging.error("Repository name is missing in the request.")
         return jsonify({"status": "Repository name is required."}), 400
 
-    # Validate 'node_id' parameter
-    if not node_id:
-        logging.error("Node ID is missing in the request.")
-        return jsonify({"status": "Node ID is required."}), 400
+    # Validate 'node_ids' parameter
+    if not node_ids:
+        logging.error("Node IDs is missing in the request.")
+        return jsonify({"status": "Node IDs is required."}), 400
 
     # Validate repo exists
     if not graph_exists(repo):
         logging.error(f"Missing project {repo}")
         return jsonify({"status": f"Missing project {repo}"}), 400
 
-    # Try converting node_id to an integer
-    try:
-        node_id = int(node_id)
-    except ValueError:
-        logging.error(f"Invalid node ID: {node_id}. It must be an integer.")
-        return jsonify({"status": "Invalid node ID. It must be an integer."}), 400
-
     # Initialize the graph with the provided repository
     g = Graph(repo)
 
     # Fetch the neighbors of the specified node
-    neighbors = g.get_neighbors(node_id)
+    neighbors = g.get_neighbors(node_ids)
 
     # Log and return the neighbors
-    logging.info(f"Successfully retrieved neighbors for node ID {node_id} in repo '{repo}'.")
+    logging.info(f"Successfully retrieved neighbors for node IDs {node_ids} in repo '{repo}'.")
 
     response = {
         'status': 'success',
@@ -197,7 +203,6 @@ def auto_complete():
     }
 
     return jsonify(response), 200
-
 
 @app.route('/list_repos', methods=['GET'])
 @token_required  # Apply token authentication decorator
@@ -340,5 +345,129 @@ def chat():
 
     # Create and return a successful response
     response = { 'status': 'success', 'response': answer }
+
+    return jsonify(response), 200
+
+@app.route('/analyze_folder', methods=['POST'])
+@token_required  # Apply token authentication decorator
+def analyze_folder():
+    """
+    Endpoint to analyze local source code
+    Expects 'path' and optionally an ignore list.
+
+    Returns:
+        JSON response with status and error message if applicable
+        Status codes:
+            200: Success
+            400: Invalid input
+            500: Internal server error
+    """
+
+    # Get JSON data from the request
+    data = request.get_json()
+
+    # Get query parameters
+    path      = data.get('path')
+    ignore    = data.get('ignore', [])
+
+    # Validate input parameters
+    if not path:
+        logging.error("'path' is missing from the request.")
+        return jsonify({"status": "'path' is required."}), 400
+
+    # Validate path exists and is a directory
+    if not os.path.isdir(path):
+        logging.error(f"Path '{path}' does not exist or is not a directory")
+        return jsonify({"status": "Invalid path: must be an existing directory"}), 400
+
+    # Validate ignore list contains valid paths
+    if not isinstance(ignore, list):
+        logging.error("'ignore' must be a list of paths")
+        return jsonify({"status": "'ignore' must be a list of paths"}), 400
+
+    proj_name = Path(path).name
+
+    # Initialize the graph with the provided project name
+    g = Graph(proj_name)
+
+    # Analyze source code within given folder
+    analyzer = SourceAnalyzer()
+    analyzer.analyze_local_folder(path, g, ignore)
+
+    # Return response
+    response = {
+            'status': 'success',
+            'project': proj_name
+        }
+    return jsonify(response), 200
+
+@app.route('/analyze_repo', methods=['POST'])
+@public_access  # Apply public access decorator
+@token_required  # Apply token authentication decorator
+def analyze_repo():
+    """
+    Analyze a GitHub repository.
+
+    Expected JSON payload:
+    {
+        "repo_url": "string",
+        "ignore": ["string"]  # optional
+    }
+
+    Returns:
+        JSON response with processing status
+    """
+
+    data = request.get_json()
+    url = data.get('repo_url')
+    if url is None:
+        return jsonify({'status': f'Missing mandatory parameter "url"'}), 400
+    logger.debug(f'Received repo_url: {url}')
+
+    ignore = data.get('ignore', [])
+
+    proj = Project.from_git_repository(url)
+    proj.analyze_sources(ignore)
+    proj.process_git_history(ignore)
+
+    # Create a response
+    response = {
+        'status': 'success',
+    }
+
+    return jsonify(response), 200
+
+@app.route('/switch_commit', methods=['POST'])
+@public_access  # Apply public access decorator
+@token_required  # Apply token authentication decorator
+def switch_commit():
+    """
+    Endpoint to switch a repository to a specific commit.
+
+    Returns:
+        JSON response with the change set or an error message.
+    """
+
+    # Get JSON data from the request
+    data = request.get_json()
+
+    # Validate that 'repo' is provided
+    repo = data.get('repo')
+    if repo is None:
+        return jsonify({'status': f'Missing mandatory parameter "repo"'}), 400
+
+    # Validate that 'commit' is provided
+    commit = data.get('commit')
+    if commit is None:
+        return jsonify({'status': f'Missing mandatory parameter "commit"'}), 400
+
+    # Attempt to switch the repository to the specified commit
+    change_set = switch_commit(repo, commit)
+
+    # Create a success response
+    response = {
+        'status': 'success',
+        'change_set': change_set
+    }
 
     return jsonify(response), 200

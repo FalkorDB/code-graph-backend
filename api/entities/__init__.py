@@ -1,9 +1,5 @@
 # __init__.py
 
 from .file import File
-from .cls import Class
-from .struct import Struct
-from .function import Function
-from .argument import Argument
-from .entity_encoder import *
-
+from .entity import Entity
+from .entity_encoder import encode_node, encode_edge, encode_path, encode_graph_entity

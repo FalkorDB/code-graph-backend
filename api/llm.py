@@ -1,8 +1,7 @@
+import os
 import logging
 
-from graphrag_sdk.models.openai import OpenAiGenerativeModel
-#from graphrag_sdk.models.gemini import GeminiGenerativeModel
-
+from graphrag_sdk.models.litellm import LiteModel
 from graphrag_sdk import (
     Ontology,
     Entity,
@@ -12,6 +11,13 @@ from graphrag_sdk import (
     KnowledgeGraph,
     KnowledgeGraphModelConfig
 )
+
+from .prompts import (CYPHER_GEN_SYSTEM,
+                     CYPHER_GEN_PROMPT,
+                     GRAPH_QA_SYSTEM,
+                     GRAPH_QA_PROMPT,
+                    )
+
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(filename)s - %(asctime)s - %(levelname)s - %(message)s')
@@ -162,10 +168,47 @@ def _define_ontology() -> Ontology:
                 ),
             ]
         )
+    
+    interface = Entity(
+            label="Interface",
+            attributes=[
+                Attribute(
+                    name="name",
+                    attr_type=AttributeType.STRING,
+                    required=True,
+                    unique=True,
+                ),
+                Attribute(
+                    name="path",
+                    attr_type=AttributeType.STRING,
+                    required=False,
+                    unique=False,
+                ),
+                Attribute(
+                    name="src_start",
+                    attr_type=AttributeType.NUMBER,
+                    required=False,
+                    unique=False,
+                ),
+                Attribute(
+                    name="src_end",
+                    attr_type=AttributeType.NUMBER,
+                    required=False,
+                    unique=False,
+                ),
+                Attribute(
+                    name="doc",
+                    attr_type=AttributeType.STRING,
+                    required=False,
+                    unique=False,
+                ),
+            ]
+        )
 
     ontology.add_entity(cls)
     ontology.add_entity(file)
     ontology.add_entity(function)
+    ontology.add_entity(interface)
 
     # Relations:
     # File     - DEFINES -> Class
@@ -181,6 +224,8 @@ def _define_ontology() -> Ontology:
     ontology.add_relation(Relation("DEFINES", "File",     "Class"))
     ontology.add_relation(Relation("DEFINES", "File",     "Function"))
     ontology.add_relation(Relation("DEFINES", "Class",    "Class"))
+    ontology.add_relation(Relation("EXTENDS", "Class",    "Class"))
+    ontology.add_relation(Relation("IMPLEMENTS", "Class",    "Interface"))
     ontology.add_relation(Relation("DEFINES", "Class",    "Function"))
     ontology.add_relation(Relation("DEFINES", "Function", "Function"))
 
@@ -192,15 +237,23 @@ ontology = _define_ontology()
 def _create_kg_agent(repo_name: str):
     global ontology
 
-    openapi_model    = OpenAiGenerativeModel("gpt-4o")
-    #gemini_model     = GeminiGenerativeModel("gemini-1.5-flash-001")
-    #gemini_model_pro = GeminiGenerativeModel("gemini-1.5-pro")
+    model_name = os.getenv('MODEL_NAME', 'gemini/gemini-2.0-flash-exp')
+
+    model = LiteModel(model_name)
 
     #ontology = _define_ontology()
     code_graph_kg = KnowledgeGraph(
         name=repo_name,
         ontology=ontology,
-        model_config=KnowledgeGraphModelConfig.with_model(openapi_model),
+        model_config=KnowledgeGraphModelConfig.with_model(model),
+        host=os.getenv('FALKORDB_HOST', 'localhost'),
+        port=os.getenv('FALKORDB_PORT', 6379),
+        username=os.getenv('FALKORDB_USERNAME', None),
+        password=os.getenv('FALKORDB_PASSWORD', None),
+        cypher_system_instruction=CYPHER_GEN_SYSTEM,
+        qa_system_instruction=GRAPH_QA_SYSTEM,
+        cypher_gen_prompt=CYPHER_GEN_PROMPT,
+        qa_prompt=GRAPH_QA_PROMPT,
     )
 
     return code_graph_kg.chat_session()
@@ -212,6 +265,5 @@ def ask(repo_name: str, question: str) -> str:
     print(f"Question: {question}")
     response = chat.send_message(question)
     logging.debug(f"Response: {response}")
-    print(f"Response: {response}")
-    return response
-
+    print(f"Response: {response['response']}")
+    return response['response']

@@ -1,20 +1,24 @@
 [tool.poetry]
-name = "code_graph"
-version = "0.1.0"
+name = "code-graph-backend"
+version = "0.2.0"
 description = "code_graph is designed to help developers visualize and analyze the structure of their source code. It takes source code as input and generates a graph representation, making it easier to understand relationships and dependencies within the codebase."
 authors = ["Roi Lipman <roilipman@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.9"
-graphrag-sdk = { version = "^0.3.0", extras = ["openai"] }
-tree-sitter = "^0.22.3"
+python = "^3.10"
+graphrag-sdk = { version = "^0.5.0", extras = ["litellm"] }
+tree-sitter = "^0.24.0"
 validators = "^0.34.0"
-falkordb = "^1.0.5"
-tree-sitter-c = "^0.21.4"
-tree-sitter-python = "^0.21.0"
-flask = "^3.0.3"
+falkordb = "^1.0.10"
+tree-sitter-c = "^0.23.4"
+tree-sitter-python = "^0.23.6"
+tree-sitter-java = "^0.23.5"
+flask = "^3.1.0"
 python-dotenv = "^1.0.1"
+multilspy = {git = "https://github.com/AviAvni/multilspy.git", rev = "update-pydantic"}
+javatools = "^1.6.0"
+pygit2 = "^1.17.0"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.2.0"

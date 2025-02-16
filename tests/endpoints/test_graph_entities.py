@@ -1,7 +1,8 @@
 import redis
 import pytest
 from pathlib import Path
-from api import create_app, Project
+from index import create_app
+from api import Project
 
 @pytest.fixture()
 def app():
