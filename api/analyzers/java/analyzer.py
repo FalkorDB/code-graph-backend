@@ -118,7 +118,7 @@ class JavaAnalyzer(AbstractAnalyzer):
         res = []
         for file, resolved_node in self.resolve(files, lsp, file_path, path, node.child_by_field_name('name')):
             method_dec = self.find_parent(resolved_node, ['method_declaration', 'constructor_declaration', 'class_declaration', 'interface_declaration', 'enum_declaration'])
-            if method_dec.type in ['class_declaration', 'interface_declaration', 'enum_declaration']:
+            if method_dec and method_dec.type in ['class_declaration', 'interface_declaration', 'enum_declaration']:
                 continue
             if method_dec in file.entities:
                 res.append(file.entities[method_dec])
