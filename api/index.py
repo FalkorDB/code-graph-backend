@@ -1,4 +1,5 @@
 import os
+import logging
 from api import *
 from pathlib import Path
 from functools import wraps
@@ -12,7 +13,6 @@ from flask import Flask, request, jsonify
 load_dotenv()
 
 # Configure the logger
-import logging
 logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -43,14 +43,14 @@ def public_access(f):
             return jsonify(message="Unauthorized"), 401
         return f(*args, **kwargs)
     return decorated_function
-  
-  
+
+
 @app.route('/', methods=['GET'])
 def index():
     """
     Return a list of all the available routes as HTML response with clickable links.
     """
-    
+
     return """
     <!DOCTYPE html>
     <html>
@@ -58,7 +58,7 @@ def index():
         <title>Falkor Code-Graph-Backend API</title>
         <link rel="icon" href="https://code-graph.falkordb.com/favicon.ico" type="image/x-icon"/>
     </head>
-    <body>      
+    <body>
         <h1>Welcome to the Falkor Code-Graph-Backend API</h1>
         <h2>Available Routes:</h2>
         <ul>
@@ -71,7 +71,8 @@ def index():
             <li><a href="/chat">/chat</a></li>
         </ul>
     </body>
-    """   
+    """
+
 
 @app.route('/graph_entities', methods=['GET'])
 @token_required  # Apply token authentication decorator
@@ -132,7 +133,7 @@ def get_neighbors():
     data = request.get_json()
 
     # Get query parameters
-    repo    = data.get('repo')
+    repo = data.get('repo')
     node_ids = data.get('node_ids')
 
     # Validate 'repo' parameter
@@ -166,6 +167,7 @@ def get_neighbors():
 
     return jsonify(response), 200
 
+
 @app.route('/auto_complete', methods=['POST'])
 @token_required  # Apply token authentication decorator
 def auto_complete():
@@ -182,12 +184,12 @@ def auto_complete():
     # Validate that 'repo' is provided
     repo = data.get('repo')
     if repo is None:
-        return jsonify({'status': f'Missing mandatory parameter "repo"'}), 400
+        return jsonify({'status': 'Missing mandatory parameter "repo"'}), 400
 
     # Validate that 'prefix' is provided
     prefix = data.get('prefix')
     if prefix is None:
-        return jsonify({'status': f'Missing mandatory parameter "prefix"'}), 400
+        return jsonify({'status': 'Missing mandatory parameter "prefix"'}), 400
 
     # Validate repo exists
     if not graph_exists(repo):
@@ -203,6 +205,7 @@ def auto_complete():
     }
 
     return jsonify(response), 200
+
 
 @app.route('/list_repos', methods=['GET'])
 @token_required  # Apply token authentication decorator
@@ -224,6 +227,7 @@ def list_repos():
     }
 
     return jsonify(response), 200
+
 
 @app.route('/repo_info', methods=['POST'])
 @token_required  # Apply token authentication decorator
@@ -248,7 +252,7 @@ def repo_info():
     # Validate the 'repo' parameter
     repo = data.get('repo')
     if repo is None:
-        return jsonify({'status': f'Missing mandatory parameter "repo"'}), 400
+        return jsonify({'status': 'Missing mandatory parameter "repo"'}), 400
 
     # Initialize the graph with the provided repository name
     g = Graph(repo)
@@ -269,6 +273,7 @@ def repo_info():
     }
 
     return jsonify(response), 200
+
 
 @app.route('/find_paths', methods=['POST'])
 @token_required  # Apply token authentication decorator
@@ -294,19 +299,19 @@ def find_paths():
     # Validate 'repo' parameter
     repo = data.get('repo')
     if repo is None:
-        return jsonify({'status': f'Missing mandatory parameter "repo"'}), 400
+        return jsonify({'status': 'Missing mandatory parameter "repo"'}), 400
 
     # Validate 'src' parameter
     src = data.get('src')
     if src is None:
-        return jsonify({'status': f'Missing mandatory parameter "src"'}), 400
+        return jsonify({'status': 'Missing mandatory parameter "src"'}), 400
     if not isinstance(src, int):
         return jsonify({'status': "src node id must be int"}), 400
 
     # Validate 'dest' parameter
     dest = data.get('dest')
     if dest is None:
-        return jsonify({'status': f'Missing mandatory parameter "dest"'}), 400
+        return jsonify({'status': 'Missing mandatory parameter "dest"'}), 400
     if not isinstance(dest, int):
         return jsonify({'status': "dest node id must be int"}), 400
 
@@ -321,9 +326,10 @@ def find_paths():
     paths = g.find_paths(src, dest)
 
     # Create and return a successful response
-    response = { 'status': 'success', 'paths': paths }
+    response = {'status': 'success', 'paths': paths}
 
     return jsonify(response), 200
+
 
 @app.route('/chat', methods=['POST'])
 @token_required  # Apply token authentication decorator
@@ -334,19 +340,20 @@ def chat():
     # Validate 'repo' parameter
     repo = data.get('repo')
     if repo is None:
-        return jsonify({'status': f'Missing mandatory parameter "repo"'}), 400
+        return jsonify({'status': 'Missing mandatory parameter "repo"'}), 400
 
     # Get optional 'label' and 'relation' parameters
     msg = data.get('msg')
     if msg is None:
-        return jsonify({'status': f'Missing mandatory parameter "msg"'}), 400
+        return jsonify({'status': 'Missing mandatory parameter "msg"'}), 400
 
     answer = ask(repo, msg)
 
     # Create and return a successful response
-    response = { 'status': 'success', 'response': answer }
+    response = {'status': 'success', 'response': answer}
 
     return jsonify(response), 200
+
 
 @app.route('/analyze_folder', methods=['POST'])
 @token_required  # Apply token authentication decorator
@@ -367,8 +374,8 @@ def analyze_folder():
     data = request.get_json()
 
     # Get query parameters
-    path      = data.get('path')
-    ignore    = data.get('ignore', [])
+    path = data.get('path')
+    ignore = data.get('ignore', [])
 
     # Validate input parameters
     if not path:
@@ -401,6 +408,7 @@ def analyze_folder():
         }
     return jsonify(response), 200
 
+
 @app.route('/analyze_repo', methods=['POST'])
 @public_access  # Apply public access decorator
 @token_required  # Apply token authentication decorator
@@ -421,7 +429,7 @@ def analyze_repo():
     data = request.get_json()
     url = data.get('repo_url')
     if url is None:
-        return jsonify({'status': f'Missing mandatory parameter "url"'}), 400
+        return jsonify({'status': 'Missing mandatory parameter "url"'}), 400
     logger.debug(f'Received repo_url: {url}')
 
     ignore = data.get('ignore', [])
@@ -436,6 +444,7 @@ def analyze_repo():
     }
 
     return jsonify(response), 200
+
 
 @app.route('/switch_commit', methods=['POST'])
 @public_access  # Apply public access decorator
@@ -454,12 +463,12 @@ def switch_commit():
     # Validate that 'repo' is provided
     repo = data.get('repo')
     if repo is None:
-        return jsonify({'status': f'Missing mandatory parameter "repo"'}), 400
+        return jsonify({'status': 'Missing mandatory parameter "repo"'}), 400
 
     # Validate that 'commit' is provided
     commit = data.get('commit')
     if commit is None:
-        return jsonify({'status': f'Missing mandatory parameter "commit"'}), 400
+        return jsonify({'status': 'Missing mandatory parameter "commit"'}), 400
 
     # Attempt to switch the repository to the specified commit
     change_set = switch_commit(repo, commit)
