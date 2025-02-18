@@ -133,7 +133,7 @@ class SourceAnalyzer():
         else:
             lsps[".java"] = NullLanguageServer()
         if any(path.rglob('*.py')):
-            config = MultilspyConfig.from_dict({"code_language": "python"})
+            config = MultilspyConfig.from_dict({"code_language": "python", "environment_path": f"{path}/venv"})
             lsps[".py"] = SyncLanguageServer.create(config, logger, str(path))
         else:
             lsps[".py"] = NullLanguageServer()
