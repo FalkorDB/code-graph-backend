@@ -28,8 +28,8 @@ class JavaAnalyzer(AbstractAnalyzer):
             groupId = dependency.find('{http://maven.apache.org/POM/4.0.0}groupId').text.replace('.', '/')
             artifactId = dependency.find('{http://maven.apache.org/POM/4.0.0}artifactId').text
             version = dependency.find('{http://maven.apache.org/POM/4.0.0}version').text
-            # jar_path = f"/Users/aviavni/.m2/repository/{groupId}/{artifactId}/{version}/{artifactId}-{version}.jar"
-            jar_path = f"/Users/aviavni/.m2/repository/{groupId}/{artifactId}/{version}/{artifactId}-{version}-sources.jar"
+            # jar_path = f"{Path.home()}/.m2/repository/{groupId}/{artifactId}/{version}/{artifactId}-{version}.jar"
+            jar_path = f"{Path.home()}/.m2/repository/{groupId}/{artifactId}/{version}/{artifactId}-{version}-sources.jar"
 
             os.makedirs(f"{path}/temp_deps/{artifactId}-{version}", exist_ok=True)
             # subprocess.run(["java", "-jar", "java-decompiler-engine-243.23654.153.jar", "-hdc=0 -iib=1 -rsy=1 -rbr=1 -dgs=1 -din=1 -den=1 -asc=1 -bsm=1", jar_path, f"{path}/temp_deps/{artifactId}-{version}"])
