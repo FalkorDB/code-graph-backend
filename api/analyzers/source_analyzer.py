@@ -86,8 +86,9 @@ class SourceAnalyzer():
         if any(path.rglob('*.py')):
             analyzers[".py"].add_dependencies(path, self.files)
 
-        files_len = len(list(path.rglob('*.*')))
-        for i, file_path in enumerate(path.rglob('*.*')):
+        files = list(path.rglob('*.*'))
+        files_len = len(files)
+        for i, file_path in enumerate(files):
             # Skip none supported files
             if file_path.suffix not in analyzers:
                 logging.info(f"Skipping none supported file {file_path}")
