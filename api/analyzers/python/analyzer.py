@@ -1,3 +1,4 @@
+import subprocess
 from multilspy import SyncLanguageServer
 from pathlib import Path
 from ...entities import *
@@ -13,6 +14,16 @@ logger = logging.getLogger('code_graph')
 class PythonAnalyzer(AbstractAnalyzer):
     def __init__(self) -> None:
         super().__init__(Language(tspython.language()))
+    
+    def add_dependencies(self, path: Path, files: dict[Path, File]):
+        if Path(f"{path}/venv").is_dir():
+            return
+        subprocess.run(["python3", "-m", "venv", f"{path}/venv"])
+        if Path(f"{path}/requirements.txt").is_file():
+            subprocess.run([f"{path}/venv/bin/pip", "install", "-r", "requirements.txt"])
+        if Path(f"{path}/pyproject.toml").is_file():
+            subprocess.run([f"{path}/venv/bin/pip", "install", "poetry"])
+            subprocess.run([f"{path}/venv/bin/poetry", "install"])
 
     def get_entity_label(self, node: Node) -> str:
         if node.type == 'class_definition':
@@ -62,16 +73,29 @@ class PythonAnalyzer(AbstractAnalyzer):
             if return_type:
                 entity.add_symbol("return_type", return_type)
 
-    def resolve_type(self, files: dict[Path, File], lsp: SyncLanguageServer, path: Path, node: Node) -> list[Entity]:
+    def is_dependency(self, file_path: str) -> bool:
+        return "venv" in file_path
+
+    def resolve_path(self, file_path: str, path: Path) -> str:
+        return file_path
+
+    def resolve_type(self, files: dict[Path, File], lsp: SyncLanguageServer, file_path: Path, path, node: Node) -> list[Entity]:
         res = []
-        for file, resolved_node in self.resolve(files, lsp, path, node):
+        if node.type == 'attribute':
+            node = node.child_by_field_name('attribute')
+        for file, resolved_node in self.resolve(files, lsp, file_path, path, node):
             type_dec = self.find_parent(resolved_node, ['class_definition'])
-            res.append(file.entities[type_dec])
+            if type_dec in file.entities:
+                res.append(file.entities[type_dec])
         return res
 
-    def resolve_method(self, files: dict[Path, File], lsp: SyncLanguageServer, path: Path, node: Node) -> list[Entity]:
+    def resolve_method(self, files: dict[Path, File], lsp: SyncLanguageServer, file_path: Path, path: Path, node: Node) -> list[Entity]:
         res = []
-        for file, resolved_node in self.resolve(files, lsp, path, node):
+        if node.type == 'call':
+            node = node.child_by_field_name('function')
+            if node.type == 'attribute':
+                node = node.child_by_field_name('attribute')
+        for file, resolved_node in self.resolve(files, lsp, file_path, path, node):
             method_dec = self.find_parent(resolved_node, ['function_definition', 'class_definition'])
             if not method_dec:
                 continue
@@ -79,10 +103,10 @@ class PythonAnalyzer(AbstractAnalyzer):
                 res.append(file.entities[method_dec])
         return res
     
-    def resolve_symbol(self, files: dict[Path, File], lsp: SyncLanguageServer, path: Path, key: str, symbol: Node) -> Entity:
+    def resolve_symbol(self, files: dict[Path, File], lsp: SyncLanguageServer, file_path: Path, path: Path, key: str, symbol: Node) -> Entity:
         if key in ["base_class", "parameters", "return_type"]:
-            return self.resolve_type(files, lsp, path, symbol)
+            return self.resolve_type(files, lsp, file_path, path, symbol)
         elif key in ["call"]:
-            return self.resolve_method(files, lsp, path, symbol)
+            return self.resolve_method(files, lsp, file_path, path, symbol)
         else:
             raise ValueError(f"Unknown key {key}")

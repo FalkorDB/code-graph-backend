@@ -1672,8 +1672,8 @@ requests = "2.32.3"
 [package.source]
 type = "git"
 url = "https://github.com/AviAvni/multilspy.git"
-reference = "update-pydantic"
-resolved_reference = "77249c40e62be7fdb7afc62b3985dff686b6c7c3"
+reference = "python-init-params"
+resolved_reference = "5206eeb675a3a07971b829a400024e4846dc0856"
 
 [[package]]
 name = "nest-asyncio"
@@ -3321,4 +3321,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "a1a88f7ed29288c2be707233bb8d478a74d2af6529066cf2be21f950f611a759"
+content-hash = "8a11b1930e343f66731ca2c6beb4d90aaa2d1602fc72a3a347763e3e46a0be4a"
