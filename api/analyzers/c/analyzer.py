@@ -1,7 +1,7 @@
-# import io
 # import os
-# from ..utils import *
 # from pathlib import Path
+
+# from multilspy import SyncLanguageServer
 # from ...entities import *
 # from ...graph import Graph
 # from typing import Optional
@@ -16,6 +16,30 @@
 # class CAnalyzer(AbstractAnalyzer):
 #     def __init__(self) -> None:
 #         super().__init__(Language(tsc.language()))
+
+#     def get_entity_label(self, node: Node) -> str:
+#         if node.type == 'struct_specifier':
+#             return "Struct"
+#         elif node.type == 'function_definition':
+#             return "Function"
+#         raise ValueError(f"Unknown entity type: {node.type}")
+
+#     def get_entity_name(self, node: Node) -> str:
+#         if node.type in ['struct_specifier', 'function_definition']:
+#             return node.child_by_field_name('name').text.decode('utf-8')
+#         raise ValueError(f"Unknown entity type: {node.type}")
+    
+#     def get_entity_docstring(self, node: Node) -> Optional[str]:
+#         if node.type in ['struct_specifier', 'function_definition']:
+#             body = node.child_by_field_name('body')
+#             if body.child_count > 0 and body.children[0].type == 'expression_statement':
+#                 docstring_node = body.children[0].child(0)
+#                 return docstring_node.text.decode('utf-8')
+#             return None
+#         raise ValueError(f"Unknown entity type: {node.type}")  
+
+#     def get_entity_types(self) -> list[str]:
+#         return ['struct_specifier', 'function_definition']
 
 #     def process_pointer_declaration(self, node: Node) -> tuple[str, int]:
 #         """
@@ -313,78 +337,54 @@
 #             # Connect parent to entity
 #             graph.connect_entities('DEFINES', parent.id, entity.id)
 
-#     def first_pass(self, path: Path, graph:Graph) -> None:
-#         """
-#         Perform the first pass processing of a C source file or header file.
+#     def add_symbols(self, entity: Entity) -> None:
+#         if entity.node.type == 'struct_specifier':
+#             superclasses = entity.node.child_by_field_name("superclasses")
+#             if superclasses:
+#                 base_classes_query = self.language.query("(argument_list (_) @base_class)")
+#                 base_classes_captures = base_classes_query.captures(superclasses)
+#                 if 'base_class' in base_classes_captures:
+#                     for base_class in base_classes_captures['base_class']:
+#                         entity.add_symbol("base_class", base_class)
+#         elif entity.node.type == 'function_definition':
+#             query = self.language.query("(call) @reference.call")
+#             captures = query.captures(entity.node)
+#             if 'reference.call' in captures:
+#                 for caller in captures['reference.call']:
+#                     entity.add_symbol("call", caller)
+#             query = self.language.query("(typed_parameter type: (_) @parameter)")
+#             captures = query.captures(entity.node)
+#             if 'parameter' in captures:
+#                 for parameter in captures['parameter']:
+#                     entity.add_symbol("parameters", parameter)
+#             return_type = entity.node.child_by_field_name('return_type')
+#             if return_type:
+#                 entity.add_symbol("return_type", return_type)
 
-#         Args:
-#             path (Path): The path to the C source file or header file.
-#             f (io.TextIOWrapper): The file object representing the opened C source file or header file.
-#             graph (Graph): The Graph object where entities will be added.
+#     def resolve_type(self, files: dict[Path, File], lsp: SyncLanguageServer, path: Path, node: Node) -> list[Entity]:
+#         res = []
+#         for file, resolved_node in self.resolve(files, lsp, path, node):
+#             type_dec = self.find_parent(resolved_node, ['struct_specifier'])
+#             res.append(file.entities[type_dec])
+#         return res
 
-#         Returns:
-#             None
-
-#         Raises:
-#             None
-
-#         This function processes the specified C source file or header file to extract and add function definitions
-#         and struct definitions to the provided graph object.
-
-#         - If the file path does not end with '.c' or '.h', it logs a debug message and skips processing.
-#         - It creates a File entity representing the file and adds it to the graph.
-#         - It parses the file content using a parser instance (`self.parser`).
-#         - Function definitions and struct definitions are extracted using Tree-sitter queries.
-#         - Each function definition is processed using `self.process_function_definition`.
-#         - Each struct definition is processed using `self.process_struct_specifier`.
-#         """
-
-#         if path.suffix != '.c' and path.suffix != '.h':
-#             logger.debug(f"Skipping none C file {path}")
-#             return
-
-#         logger.info(f"Processing {path}")
-
-#         # Create file entity
-#         file = File(os.path.dirname(path), path.name, path.suffix)
-#         graph.add_file(file)
-
-#         # Parse file
-#         source_code = path.read_bytes()
-#         tree = self.parser.parse(source_code)
-#         try:
-#             source_code = source_code.decode('utf-8')
-#         except Exception as e:
-#             logger.error(f"Failed decoding source code: {e}")
-#             source_code = ''
-
-#         # Process function definitions
-#         query = self.language.query("(function_definition) @function")
-#         captures = query.captures(tree.root_node)
-#         # captures: {'function':
-#         #   [<Node type=function_definition, start_point=(0, 0), end_point=(7, 1)>,
-#         #    <Node type=function_definition, start_point=(15, 0), end_point=(18, 1)>
-#         #   ]
-#         # }
-
-#         if 'function' in captures:
-#             functions = captures['function']
-#             for node in functions:
-#                 self.process_function_definition(file, node, path, graph, source_code)
-
-#         # Process struct definitions
-#         query = self.language.query("(struct_specifier) @struct")
-#         captures = query.captures(tree.root_node)
-        
-#         if 'struct' in captures:
-#             structs = captures['struct']
-#             # captures: {'struct':
-#             #   [
-#             #       <Node type=struct_specifier, start_point=(9, 0), end_point=(13, 1)>
-#             #   ]
-#             # }
-#             for node in structs:
-#                 self.process_struct_specifier(file, node, path, graph)
+#     def resolve_method(self, files: dict[Path, File], lsp: SyncLanguageServer, path: Path, node: Node) -> list[Entity]:
+#         res = []
+#         for file, resolved_node in self.resolve(files, lsp, path, node):
+#             method_dec = self.find_parent(resolved_node, ['function_definition'])
+#             if not method_dec:
+#                 continue
+#             if method_dec in file.entities:
+#                 res.append(file.entities[method_dec])
+#         return res
+    
+#     def resolve_symbol(self, files: dict[Path, File], lsp: SyncLanguageServer, path: Path, key: str, symbol: Node) -> Entity:
+#         if key in ["parameters", "return_type"]:
+#             return self.resolve_type(files, lsp, path, symbol)
+#         elif key in ["call"]:
+#             return self.resolve_method(files, lsp, path, symbol)
+#         else:
+#             raise ValueError(f"Unknown key {key}")
 
 #     def second_pass(self, path: Path, graph: Graph) -> None:
 #         """

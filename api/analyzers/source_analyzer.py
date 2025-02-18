@@ -47,7 +47,8 @@ class SourceAnalyzer():
             if node.type in types:
                 child = Entity(node)
                 child.id = graph.add_entity(analyzer.get_entity_label(node), analyzer.get_entity_name(node), analyzer.get_entity_docstring(node), str(file.path), node.start_point.row, node.end_point.row, {})
-                analyzer.add_symbols(child)
+                if not analyzer.is_dependency(str(file.path)):
+                    analyzer.add_symbols(child)
                 file.add_entity(child)
                 entity.add_child(child)
                 graph.connect_entities("DEFINES", entity.id, child.id)
@@ -63,7 +64,8 @@ class SourceAnalyzer():
             if node.type in types:
                 entity = Entity(node)
                 entity.id = graph.add_entity(analyzer.get_entity_label(node), analyzer.get_entity_name(node), analyzer.get_entity_docstring(node), str(file.path), node.start_point.row, node.end_point.row, {})
-                analyzer.add_symbols(entity)
+                if not analyzer.is_dependency(str(file.path)):
+                    analyzer.add_symbols(entity)
                 file.add_entity(entity)
                 graph.connect_entities("DEFINES", file.id, entity.id)
                 self.create_entity_hierarchy(entity, file, analyzer, graph)
@@ -79,7 +81,14 @@ class SourceAnalyzer():
             executor (concurrent.futures.Executor): The executor to run tasks concurrently.
         """
 
-        for file_path in path.rglob('*.*'):
+        if any(path.rglob('*.java')):
+            analyzers[".java"].add_dependencies(path, self.files)
+        if any(path.rglob('*.py')):
+            analyzers[".py"].add_dependencies(path, self.files)
+
+        files = list(path.rglob('*.*'))
+        files_len = len(files)
+        for i, file_path in enumerate(files):
             # Skip none supported files
             if file_path.suffix not in analyzers:
                 logging.info(f"Skipping none supported file {file_path}")
@@ -90,7 +99,7 @@ class SourceAnalyzer():
                 logging.info(f"Skipping ignored file {file_path}")
                 continue
 
-            logging.info(f'Processing file: {file_path}')
+            logging.info(f'Processing file ({i + 1}/{files_len}): {file_path}')
 
             analyzer = analyzers[file_path.suffix]
 
@@ -125,15 +134,16 @@ class SourceAnalyzer():
         else:
             lsps[".java"] = NullLanguageServer()
         if any(path.rglob('*.py')):
-            config = MultilspyConfig.from_dict({"code_language": "python"})
+            config = MultilspyConfig.from_dict({"code_language": "python", "environment_path": f"{path}/venv"})
             lsps[".py"] = SyncLanguageServer.create(config, logger, str(path))
         else:
             lsps[".py"] = NullLanguageServer()
         with lsps[".java"].start_server(), lsps[".py"].start_server():
-            for file_path, file in self.files.items():
-                logging.info(f'Processing file: {file_path}')
+            files_len = len(self.files)
+            for i, (file_path, file) in enumerate(self.files.items()):
+                logging.info(f'Processing file ({i + 1}/{files_len}): {file_path}')
                 for _, entity in file.entities.items():
-                    entity.resolved_symbol(lambda key, symbol: analyzers[file_path.suffix].resolve_symbol(self.files, lsps[file_path.suffix], file_path, key, symbol))
+                    entity.resolved_symbol(lambda key, symbol: analyzers[file_path.suffix].resolve_symbol(self.files, lsps[file_path.suffix], file_path, path, key, symbol))
                     for key, symbols in entity.resolved_symbols.items():
                         for symbol in symbols:
                             if key == "base_class":

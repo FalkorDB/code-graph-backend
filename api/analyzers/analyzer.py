@@ -16,12 +16,54 @@ class AbstractAnalyzer(ABC):
         while node and node.type not in parent_types:
             node = node.parent
         return node
+    
+    @abstractmethod
+    def is_dependency(self, file_path: str) -> bool:
+        """
+        Check if the file is a dependency.
 
-    def resolve(self, files: dict[Path, File], lsp: SyncLanguageServer, path: Path, node: Node) -> list[tuple[File, Node]]:
+        Args:
+            file_path (str): The file path.
+
+        Returns:
+            bool: True if the file is a dependency, False otherwise.
+        """
+
+        pass
+    
+    @abstractmethod
+    def resolve_path(self, file_path: str, path: Path) -> str:
+        """
+        Resolve the path of the file.
+
+        Args:
+            file_path (str): The file path.
+            path (Path): The path to the folder.
+
+        Returns:
+            str: The resolved path.
+        """
+
+        pass
+
+    def resolve(self, files: dict[Path, File], lsp: SyncLanguageServer, file_path: Path, path: Path, node: Node) -> list[tuple[File, Node]]:
         try:
-            return [(files[Path(location['absolutePath'])], files[Path(location['absolutePath'])].tree.root_node.descendant_for_point_range(Point(location['range']['start']['line'], location['range']['start']['character']), Point(location['range']['end']['line'], location['range']['end']['character']))) for location in lsp.request_definition(str(path), node.start_point.row, node.start_point.column) if location and Path(location['absolutePath']) in files]
+            locations = lsp.request_definition(str(file_path), node.start_point.row, node.start_point.column)
+            return [(files[Path(self.resolve_path(location['absolutePath'], path))], files[Path(self.resolve_path(location['absolutePath'], path))].tree.root_node.descendant_for_point_range(Point(location['range']['start']['line'], location['range']['start']['character']), Point(location['range']['end']['line'], location['range']['end']['character']))) for location in locations if location and Path(self.resolve_path(location['absolutePath'], path)) in files]
         except Exception as e:
             return []
+        
+    @abstractmethod
+    def add_dependencies(self, path: Path, files: dict[Path, File]):
+        """
+        Add dependencies to the files.
+
+        Args:
+            path (Path): The path to the folder.
+            files (dict[Path, File]): The files.
+        """
+
+        pass
     
     @abstractmethod
     def get_entity_label(self, node: Node) -> str:
@@ -85,7 +127,7 @@ class AbstractAnalyzer(ABC):
         pass
 
     @abstractmethod
-    def resolve_symbol(self, files: dict[Path, File], lsp: SyncLanguageServer, path: Path, key: str, symbol: Node) -> Entity:
+    def resolve_symbol(self, files: dict[Path, File], lsp: SyncLanguageServer, file_path: Path, path: Path, key: str, symbol: Node) -> Entity:
         """
         Resolve a symbol to an entity.
 
