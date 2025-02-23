@@ -81,12 +81,16 @@ class SourceAnalyzer():
             executor (concurrent.futures.Executor): The executor to run tasks concurrently.
         """
 
-        if any(path.rglob('*.java')):
-            analyzers[".java"].add_dependencies(path, self.files)
-        if any(path.rglob('*.py')):
-            analyzers[".py"].add_dependencies(path, self.files)
+        if path.is_file():
+            files = [path]
+        else:
+            if any(path.rglob('*.java')):
+                analyzers[".java"].add_dependencies(path, self.files)
+            if any(path.rglob('*.py')):
+                analyzers[".py"].add_dependencies(path, self.files)
 
-        files = list(path.rglob('*.*'))
+            files = list(path.rglob('*.*'))
+        
         files_len = len(files)
         for i, file_path in enumerate(files):
             # Skip none supported files
@@ -210,7 +214,7 @@ class SourceAnalyzer():
         # Save processed commit hash to the DB
         repo = Repo(path)
         head = repo.commit("HEAD")
-        self.graph.set_graph_commit(head.hexsha)
+        self.graph.set_graph_commit(head.short_id)
 
         return self.graph
     

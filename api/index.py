@@ -43,6 +43,7 @@ def public_access(f):
             return jsonify(message="Unauthorized"), 401
         return f(*args, **kwargs)
     return decorated_function
+
 @app.route('/graph_entities', methods=['GET'])
 @token_required  # Apply token authentication decorator
 def graph_entities():

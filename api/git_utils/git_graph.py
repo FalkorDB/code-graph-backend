@@ -46,9 +46,9 @@ class GitGraph():
         """
             Add a new commit to the graph
         """
-        date    = commit.committed_date
+        date    = commit.commit_time
         author  = commit.author.name
-        hexsha  = commit.hexsha
+        hexsha  = commit.short_id
         message = commit.message
         logging.info(f"Adding commit {hexsha}: {message}")
 
