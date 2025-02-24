@@ -15,15 +15,17 @@ class PythonAnalyzer(AbstractAnalyzer):
     def __init__(self) -> None:
         super().__init__(Language(tspython.language()))
     
-    def add_dependencies(self, path: Path, files: dict[Path, File]):
+    def add_dependencies(self, path: Path, files: list[Path]):
         if Path(f"{path}/venv").is_dir():
             return
         subprocess.run(["python3", "-m", "venv", f"{path}/venv"])
-        if Path(f"{path}/requirements.txt").is_file():
-            subprocess.run([f"{path}/venv/bin/pip", "install", "-r", "requirements.txt"])
         if Path(f"{path}/pyproject.toml").is_file():
             subprocess.run([f"{path}/venv/bin/pip", "install", "poetry"])
             subprocess.run([f"{path}/venv/bin/poetry", "install"])
+            files.extend(Path(f"{path}/venv").rglob("*.py"))
+        elif Path(f"{path}/requirements.txt").is_file():
+            subprocess.run([f"{path}/venv/bin/pip", "install", "-r", "requirements.txt"])
+            files.extend(Path(f"{path}/venv").rglob("*.py"))
 
     def get_entity_label(self, node: Node) -> str:
         if node.type == 'class_definition':

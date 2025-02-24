@@ -72,7 +72,7 @@ class SourceAnalyzer():
             else:
                 stack.extend(node.children)
 
-    def first_pass(self, path: Path, ignore: list[str], graph: Graph) -> None:
+    def first_pass(self, path: Path, files: list[Path], ignore: list[str], graph: Graph) -> None:
         """
         Perform the first pass analysis on source files in the given directory tree.
 
@@ -81,15 +81,10 @@ class SourceAnalyzer():
             executor (concurrent.futures.Executor): The executor to run tasks concurrently.
         """
 
-        if path.is_file():
-            files = [path]
-        else:
-            if any(path.rglob('*.java')):
-                analyzers[".java"].add_dependencies(path, self.files)
-            if any(path.rglob('*.py')):
-                analyzers[".py"].add_dependencies(path, self.files)
-
-            files = list(path.rglob('*.*'))
+        if any([file for file in files if file.suffix == ".java"]):
+            analyzers[".java"].add_dependencies(path, files)
+        if any([file for file in files if file.suffix == ".py"]):
+            analyzers[".py"].add_dependencies(path, files)
         
         files_len = len(files)
         for i, file_path in enumerate(files):
@@ -119,7 +114,7 @@ class SourceAnalyzer():
             graph.add_file(file)
             self.create_hierarchy(file, analyzer, graph)
 
-    def second_pass(self, graph: Graph, path: Path) -> None:
+    def second_pass(self, graph: Graph, files: list[Path], path: Path) -> None:
         """
         Recursively analyze the contents of a directory.
 
@@ -144,7 +139,8 @@ class SourceAnalyzer():
             lsps[".py"] = NullLanguageServer()
         with lsps[".java"].start_server(), lsps[".py"].start_server():
             files_len = len(self.files)
-            for i, (file_path, file) in enumerate(self.files.items()):
+            for i, file_path in enumerate(files):
+                file = self.files[file_path]
                 logging.info(f'Processing file ({i + 1}/{files_len}): {file_path}')
                 for _, entity in file.entities.items():
                     entity.resolved_symbol(lambda key, symbol: analyzers[file_path.suffix].resolve_symbol(self.files, lsps[file_path.suffix], file_path, path, key, symbol))
@@ -163,22 +159,17 @@ class SourceAnalyzer():
                             elif key == "parameters":
                                 graph.connect_entities("PARAMETERS", entity.id, symbol.id)
 
-    def analyze_file(self, file_path: Path, path: Path, graph: Graph) -> None:
-        ext = file_path.suffix
-        logging.info(f"analyze_file: path: {file_path}")
-        logging.info(f"analyze_file: ext: {ext}")
-        if ext not in analyzers:
-            return
-
-        self.first_pass(file_path, [], graph)
-        self.second_pass(graph, path)
+    def analyze_files(self, files: list[Path], path: Path, graph: Graph) -> None:
+        self.first_pass(path, files, [], graph)
+        self.second_pass(graph, files, path)
 
     def analyze_sources(self, path: Path, ignore: list[str], graph: Graph) -> None:
+        files = list(path.rglob("*.java")) + list(path.rglob("*.py"))
         # First pass analysis of the source code
-        self.first_pass(path, ignore, graph)
+        self.first_pass(path, files, ignore, graph)
 
         # Second pass analysis of the source code
-        self.second_pass(graph, path)
+        self.second_pass(graph, files, path)
 
     def analyze_local_folder(self, path: str, g: Graph, ignore: Optional[list[str]] = []) -> None:
         """
@@ -207,12 +198,12 @@ class SourceAnalyzer():
             path (str): Path to a local git repository
             ignore (List(str)): List of paths to skip
         """
-        from git import Repo
+        from pygit2.repository import Repository
 
         self.analyze_local_folder(path, ignore)
 
         # Save processed commit hash to the DB
-        repo = Repo(path)
+        repo = Repository(path)
         head = repo.commit("HEAD")
         self.graph.set_graph_commit(head.short_id)
 

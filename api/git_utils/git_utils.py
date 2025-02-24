@@ -32,7 +32,7 @@ def is_ignored(file_path: str, ignore_list: List[str]) -> bool:
 
     return any(file_path.startswith(ignore) for ignore in ignore_list)
 
-def classify_changes(diff: Diff, repo: Repository, ignore_list: List[str]) -> tuple[list[Path], list[Path], list[Path]]:
+def classify_changes(diff: Diff, repo: Repository, supported_types: list[str], ignore_list: List[str]) -> tuple[list[Path], list[Path], list[Path]]:
     """
     Classifies changes into added, deleted, and modified files.
 
@@ -49,18 +49,24 @@ def classify_changes(diff: Diff, repo: Repository, ignore_list: List[str]) -> tu
     for change in diff.deltas:
         if change.status == DeltaStatus.ADDED and not is_ignored(change.new_file.path, ignore_list):
             logging.debug(f"new file: {change.new_file}")
-            added.append(Path(f"{repo.workdir}/{change.new_file.path}"))
+            file_path = Path(f"{repo.workdir}/{change.new_file.path}")
+            if file_path.suffix in supported_types:
+                added.append(file_path)
         if change.status == DeltaStatus.DELETED and not is_ignored(change.old_file.path, ignore_list):
             logging.debug(f"deleted file: {change.old_file.path}")
-            deleted.append(Path(f"{repo.workdir}/{change.old_file.path}"))
+            file_path = Path(f"{repo.workdir}/{change.old_file.path}")
+            if file_path.suffix in supported_types:
+                deleted.append(file_path)
         if change.status == DeltaStatus.MODIFIED and not is_ignored(change.new_file.path, ignore_list):
             logging.debug(f"change file: {change.new_file.path}")
-            modified.append(Path(f"{repo.workdir}/{change.new_file.path}"))
+            file_path = Path(f"{repo.workdir}/{change.new_file.path}")
+            if file_path.suffix in supported_types:
+                modified.append(file_path)
 
     return added, deleted, modified
 
 # build a graph capturing the git commit history
-def build_commit_graph(path: str, repo_name: str, ignore_list: Optional[List[str]] = None) -> GitGraph:
+def build_commit_graph(path: str, analyzer: SourceAnalyzer, repo_name: str, ignore_list: Optional[List[str]] = None) -> GitGraph:
     """
     Builds a graph representation of the git commit history.
 
@@ -82,7 +88,6 @@ def build_commit_graph(path: str, repo_name: str, ignore_list: Optional[List[str
     g = Graph(repo_name).clone(repo_name + "_tmp")
     g.enable_backlog()
 
-    analyzer        = SourceAnalyzer()
     git_graph       = GitGraph(GitRepoName(repo_name))
     supported_types = analyzer.supported_types()
 
@@ -125,7 +130,7 @@ def build_commit_graph(path: str, repo_name: str, ignore_list: Optional[List[str
             and {parent_commit.short_id}: {parent_commit.message}""")
 
         diff = repo.diff(child_commit, parent_commit)
-        added, deleted, modified = classify_changes(diff, repo, ignore_list)
+        added, deleted, modified = classify_changes(diff, repo, supported_types, ignore_list)
 
         # Checkout prev commit
         logging.info(f"Checking out commit: {parent_commit.short_id}")
@@ -136,24 +141,15 @@ def build_commit_graph(path: str, repo_name: str, ignore_list: Optional[List[str
         #-----------------------------------------------------------------------
 
         # apply deletions
-        # TODO: a bit of a waste, compute in previous loop
-        deleted_files = []
-        for deleted_file_path in deleted:
-            _ext = deleted_file_path.suffix
-            if _ext in supported_types:
-                deleted_files.append(
-                        {'path': str(deleted_file_path), 'name': deleted_file_path.name, 'ext' : _ext})
 
         # remove deleted files from the graph
-        if len(deleted_files) > 0:
-            logging.info(f"Removing deleted files: {deleted_files}")
-            g.delete_files(deleted_files)
+        if len(deleted + modified) > 0:
+            logging.info(f"Removing deleted files: {deleted + modified}")
+            g.delete_files(deleted + modified)
 
-        if len(added) > 0:
-            for new_file in added:
-                # New file been added
-                logging.info(f"Introducing a new source file: {new_file}")
-                analyzer.analyze_file(new_file, Path(path), g)
+        if len(added + modified) > 0:
+            logging.info(f"Introducing a new filed: {added + modified}")
+            analyzer.analyze_files(added + modified, Path(path), g)
 
         queries, params = g.clear_backlog()
 
@@ -197,7 +193,7 @@ def build_commit_graph(path: str, repo_name: str, ignore_list: Optional[List[str
             and {child_commit.short_id}: {child_commit.message}""")
 
         diff = repo.diff(parent_commit, child_commit)
-        added, deleted, modified = classify_changes(diff, repo, ignore_list)
+        added, deleted, modified = classify_changes(diff, repo, supported_types, ignore_list)
 
         # Checkout child commit
         logging.info(f"Checking out commit: {child_commit.short_id}")
@@ -208,26 +204,15 @@ def build_commit_graph(path: str, repo_name: str, ignore_list: Optional[List[str
         #-----------------------------------------------------------------------
 
         # apply deletions
-        # TODO: a bit of a waste, compute in previous loop
-        deleted_files = []
-        for deleted_file_path in deleted:
-            _ext = os.path.splitext(deleted_file_path)[1]
-            if _ext in supported_types:
-                _path = os.path.dirname(deleted_file_path)
-                _name = os.path.basename(deleted_file_path)
-                deleted_files.append(
-                        {'path': _path, 'name': _name, 'ext' : _ext})
 
         # remove deleted files from the graph
-        if len(deleted_files) > 0:
-            logging.info(f"Removing deleted files: {deleted_files}")
-            g.delete_files(deleted_files)
+        if len(deleted + modified) > 0:
+            logging.info(f"Removing deleted files: {deleted + modified}")
+            g.delete_files(deleted + modified)
 
-        if len(added) > 0:
-            for new_file in added:
-                # New file been added
-                logging.info(f"Introducing a new source file: {new_file}")
-                analyzer.analyze_file(new_file, Path(path), g)
+        if len(added + modified) > 0:
+            logging.info(f"Introducing a new files: {added + modified}")
+            analyzer.analyze_files(added + modified, Path(path), g)
 
         queries, params = g.clear_backlog()
 
