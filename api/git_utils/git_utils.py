@@ -142,6 +142,7 @@ def build_commit_graph(path: str, analyzer: SourceAnalyzer, repo_name: str, igno
 
         # apply deletions
 
+        # reating modified files as both deleted and added
         # remove deleted files from the graph
         if len(deleted + modified) > 0:
             logging.info(f"Removing deleted files: {deleted + modified}")
@@ -205,6 +206,7 @@ def build_commit_graph(path: str, analyzer: SourceAnalyzer, repo_name: str, igno
 
         # apply deletions
 
+        # reating modified files as both deleted and added
         # remove deleted files from the graph
         if len(deleted + modified) > 0:
             logging.info(f"Removing deleted files: {deleted + modified}")

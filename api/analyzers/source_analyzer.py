@@ -81,10 +81,9 @@ class SourceAnalyzer():
             executor (concurrent.futures.Executor): The executor to run tasks concurrently.
         """
 
-        if any([file for file in files if file.suffix == ".java"]):
-            analyzers[".java"].add_dependencies(path, files)
-        if any([file for file in files if file.suffix == ".py"]):
-            analyzers[".py"].add_dependencies(path, files)
+        supoorted_types = self.supported_types()
+        for ext in set([file.suffix for file in files if file.suffix in supoorted_types]):
+            analyzers[ext].add_dependencies(path, files)
         
         files_len = len(files)
         for i, file_path in enumerate(files):
