@@ -253,7 +253,7 @@ def build_commit_graph(path: str, analyzer: SourceAnalyzer, repo_name: str, igno
 
     return git_graph
 
-def switch_commit(repo: str, to: str) -> dict[str, dict[str, list]]:
+def switch_commit(repo: str, to: str):
     """
     Switches the state of a graph repository from its current commit to the given commit.
 
@@ -264,21 +264,6 @@ def switch_commit(repo: str, to: str) -> dict[str, dict[str, list]]:
     Args:
         repo (str): The name of the graph repository to switch commits.
         to (str): The target commit hash to switch the graph to.
-
-    Returns:
-        dict: A dictionary containing the changes made during the commit switch, organized by:
-            - 'deletions': {
-                'nodes': List of node IDs deleted,
-                'edges': List of edge IDs deleted
-            },
-            - 'additions': {
-                'nodes': List of new Node objects added,
-                'edges': List of new Edge objects added
-            },
-            - 'modifications': {
-                'nodes': List of modified Node objects,
-                'edges': List of modified Edge objects
-            }
     """
 
     # Validate input arguments
@@ -289,22 +274,6 @@ def switch_commit(repo: str, to: str) -> dict[str, dict[str, list]]:
         raise ValueError("Invalid desired commit value")
 
     logging.info(f"Switching to commit: {to}")
-
-    # Initialize return value to an empty change set
-    change_set = {
-        'deletions': {
-            'nodes': [],
-            'edges': []
-        },
-        'additions': {
-            'nodes': [],
-            'edges': [],
-        },
-        'modifications': {
-            'nodes': [],
-            'edges': []
-        }
-    }
 
     # Initialize the graph and GitGraph objects
     g = Graph(repo)
@@ -317,7 +286,7 @@ def switch_commit(repo: str, to: str) -> dict[str, dict[str, list]]:
     if current_hash == to:
         logging.debug("Current commit: {current_hash} is the requested commit")
         # No change remain at the current commit
-        return change_set
+        return
 
     # Find the path between the current commit and the desired commit
     commits = git_graph.get_commits([current_hash, to])
@@ -353,14 +322,8 @@ def switch_commit(repo: str, to: str) -> dict[str, dict[str, list]]:
             logging.debug(f"Executing query: {_q} with params: {_p}")
 
             # Rerun the query with parameters on the graph
-            res = g.rerun_query(_q, _p)
-            if "DELETE" in _q:
-                deleted_nodes = res.result_set[0][0]
-                change_set['deletions']['nodes'] += deleted_nodes
+            g.rerun_query(_q, _p)
 
     # Update the graph's commit to the new target commit
     set_repo_commit(repo, to)
     logging.info(f"Graph commit updated to {to}")
-
-    return change_set
-

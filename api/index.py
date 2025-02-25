@@ -433,7 +433,7 @@ def switch_commit():
         return jsonify({'status': f'Missing mandatory parameter "commit"'}), 400
 
     # Attempt to switch the repository to the specified commit
-    change_set = switch_commit(repo, commit)
+    change_set = git_utils.switch_commit(repo, commit)
 
     # Create a success response
     response = {
