@@ -1,6 +1,8 @@
 import subprocess
 from multilspy import SyncLanguageServer
 from pathlib import Path
+
+import toml
 from ...entities import *
 from typing import Optional
 from ..analyzer import AbstractAnalyzer
@@ -22,10 +24,16 @@ class PythonAnalyzer(AbstractAnalyzer):
         if Path(f"{path}/pyproject.toml").is_file():
             subprocess.run([f"{path}/venv/bin/pip", "install", "poetry"])
             subprocess.run([f"{path}/venv/bin/poetry", "install"])
-            files.extend(Path(f"{path}/venv").rglob("*.py"))
+            with open(f"{path}/pyproject.toml", 'r') as file:
+                pyproject_data = toml.load(file)
+                for requirement in pyproject_data.get("tool").get("poetry").get("dependencies"):
+                    files.extend(Path(f"{path}/venv/{requirement}").rglob("*.py"))
         elif Path(f"{path}/requirements.txt").is_file():
             subprocess.run([f"{path}/venv/bin/pip", "install", "-r", "requirements.txt"])
-            files.extend(Path(f"{path}/venv").rglob("*.py"))
+            with open(f"{path}/requirements.txt", 'r') as file:
+                requirements = [line.strip().split("==") for line in file if line.strip()]
+                for requirement in requirements:
+                    files.extend(Path(f"{path}/venv/{requirement}").rglob("*.py"))
 
     def get_entity_label(self, node: Node) -> str:
         if node.type == 'class_definition':
