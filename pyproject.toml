@@ -19,6 +19,7 @@ python-dotenv = "^1.0.1"
 multilspy = {git = "https://github.com/AviAvni/multilspy.git", rev = "python-init-params"}
 javatools = "^1.6.0"
 pygit2 = "^1.17.0"
+toml = "^0.10.2"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.2.0"
