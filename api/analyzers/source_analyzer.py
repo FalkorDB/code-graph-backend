@@ -38,7 +38,7 @@ class SourceAnalyzer():
         """
         """
         return list(analyzers.keys())
-    
+
     def create_entity_hierarchy(self, entity: Entity, file: File, analyzer: AbstractAnalyzer, graph: Graph):
         types = analyzer.get_entity_types()
         stack = list(entity.node.children)

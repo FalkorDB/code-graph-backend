@@ -1,8 +1,7 @@
-import os
 import json
 import logging
 
-from pygit2 import Commit, Diff
+from pygit2 import Diff
 from ..info import *
 from pygit2.repository import Repository
 from pygit2.enums import DeltaStatus, CheckoutStrategy
@@ -16,6 +15,7 @@ from ..analyzers import SourceAnalyzer
 logging.basicConfig(level=logging.DEBUG, format='%(filename)s - %(asctime)s - %(levelname)s - %(message)s')
 
 def GitRepoName(repo_name):
+    """ Returns the git repository name """
     return "{" + repo_name + "}_git"
 
 def is_ignored(file_path: str, ignore_list: List[str]) -> bool:
@@ -32,7 +32,11 @@ def is_ignored(file_path: str, ignore_list: List[str]) -> bool:
 
     return any(file_path.startswith(ignore) for ignore in ignore_list)
 
-def classify_changes(diff: Diff, repo: Repository, supported_types: list[str], ignore_list: List[str]) -> tuple[list[Path], list[Path], list[Path]]:
+def classify_changes(
+    diff: Diff,
+    repo: Repository,
+    supported_types: list[str],
+    ignore_list: List[str]) -> tuple[list[Path], list[Path], list[Path]]:
     """
     Classifies changes into added, deleted, and modified files.
 
@@ -48,17 +52,17 @@ def classify_changes(diff: Diff, repo: Repository, supported_types: list[str], i
 
     for change in diff.deltas:
         if change.status == DeltaStatus.ADDED and not is_ignored(change.new_file.path, ignore_list):
-            logging.debug(f"new file: {change.new_file}")
+            logging.debug("new file: %s", change.new_file)
             file_path = Path(f"{repo.workdir}/{change.new_file.path}")
             if file_path.suffix in supported_types:
                 added.append(file_path)
         if change.status == DeltaStatus.DELETED and not is_ignored(change.old_file.path, ignore_list):
-            logging.debug(f"deleted file: {change.old_file.path}")
+            logging.debug("deleted file: %s", change.old_file.path)
             file_path = Path(f"{repo.workdir}/{change.old_file.path}")
             if file_path.suffix in supported_types:
                 deleted.append(file_path)
         if change.status == DeltaStatus.MODIFIED and not is_ignored(change.new_file.path, ignore_list):
-            logging.debug(f"change file: {change.new_file.path}")
+            logging.debug("change file: %s", change.new_file.path)
             file_path = Path(f"{repo.workdir}/{change.new_file.path}")
             if file_path.suffix in supported_types:
                 modified.append(file_path)
@@ -83,7 +87,7 @@ def build_commit_graph(path: str, analyzer: SourceAnalyzer, repo_name: str, igno
         ignore_list = []
 
     # Copy the graph into a temporary graph
-    logging.info(f"Cloning source graph {repo_name} -> {repo_name}_tmp")
+    logging.info("Cloning source graph %s -> %s_tmp", repo_name, repo_name)
     # Will be deleted at the end of this function
     g = Graph(repo_name).clone(repo_name + "_tmp")
     g.enable_backlog()
