@@ -1,10 +1,10 @@
-import os
 import json
 import logging
 
-from pygit2 import Commit
+from pygit2 import Diff
 from ..info import *
 from pygit2.repository import Repository
+from pygit2.enums import DeltaStatus, CheckoutStrategy
 from pathlib import Path
 from ..graph import Graph
 from .git_graph import GitGraph
@@ -15,6 +15,7 @@ from ..analyzers import SourceAnalyzer
 logging.basicConfig(level=logging.DEBUG, format='%(filename)s - %(asctime)s - %(levelname)s - %(message)s')
 
 def GitRepoName(repo_name):
+    """ Returns the git repository name """
     return "{" + repo_name + "}_git"
 
 def is_ignored(file_path: str, ignore_list: List[str]) -> bool:
@@ -31,7 +32,11 @@ def is_ignored(file_path: str, ignore_list: List[str]) -> bool:
 
     return any(file_path.startswith(ignore) for ignore in ignore_list)
 
-def classify_changes(diff, ignore_list: List[str]) -> tuple[list[Path], list[Path], list[Path]]:
+def classify_changes(
+    diff: Diff,
+    repo: Repository,
+    supported_types: list[str],
+    ignore_list: List[str]) -> tuple[list[Path], list[Path], list[Path]]:
     """
     Classifies changes into added, deleted, and modified files.
 
@@ -45,21 +50,27 @@ def classify_changes(diff, ignore_list: List[str]) -> tuple[list[Path], list[Pat
 
     added, deleted, modified = [], [], []
 
-    for change in diff:
-        if change.new_file and not is_ignored(change.b_path, ignore_list):
-            logging.debug(f"new file: {change.b_path}")
-            added.append(Path(change.b_path))
-        if change.deleted_file and not is_ignored(change.a_path, ignore_list):
-            logging.debug(f"deleted file: {change.a_path}")
-            deleted.append(Path(change.a_path))
-        if change.change_type == 'M' and not is_ignored(change.a_path, ignore_list):
-            logging.debug(f"change file: {change.a_path}")
-            modified.append(Path(change.a_path))
+    for change in diff.deltas:
+        if change.status == DeltaStatus.ADDED and not is_ignored(change.new_file.path, ignore_list):
+            logging.debug("new file: %s", change.new_file)
+            file_path = Path(f"{repo.workdir}/{change.new_file.path}")
+            if file_path.suffix in supported_types:
+                added.append(file_path)
+        if change.status == DeltaStatus.DELETED and not is_ignored(change.old_file.path, ignore_list):
+            logging.debug("deleted file: %s", change.old_file.path)
+            file_path = Path(f"{repo.workdir}/{change.old_file.path}")
+            if file_path.suffix in supported_types:
+                deleted.append(file_path)
+        if change.status == DeltaStatus.MODIFIED and not is_ignored(change.new_file.path, ignore_list):
+            logging.debug("change file: %s", change.new_file.path)
+            file_path = Path(f"{repo.workdir}/{change.new_file.path}")
+            if file_path.suffix in supported_types:
+                modified.append(file_path)
 
     return added, deleted, modified
 
 # build a graph capturing the git commit history
-def build_commit_graph(path: str, repo_name: str, ignore_list: Optional[List[str]] = None) -> GitGraph:
+def build_commit_graph(path: str, analyzer: SourceAnalyzer, repo_name: str, ignore_list: Optional[List[str]] = None) -> GitGraph:
     """
     Builds a graph representation of the git commit history.
 
@@ -76,12 +87,11 @@ def build_commit_graph(path: str, repo_name: str, ignore_list: Optional[List[str
         ignore_list = []
 
     # Copy the graph into a temporary graph
-    logging.info(f"Cloning source graph {repo_name} -> {repo_name}_tmp")
+    logging.info("Cloning source graph %s -> %s_tmp", repo_name, repo_name)
     # Will be deleted at the end of this function
     g = Graph(repo_name).clone(repo_name + "_tmp")
     g.enable_backlog()
 
-    analyzer        = SourceAnalyzer()
     git_graph       = GitGraph(GitRepoName(repo_name))
     supported_types = analyzer.supported_types()
 
@@ -89,7 +99,7 @@ def build_commit_graph(path: str, repo_name: str, ignore_list: Optional[List[str
     # Save current git for later restoration
     repo = Repository('.')
     current_commit = repo.walk(repo.head.target).__next__()
-    current_commit_hexsha = current_commit.hex
+    current_commit_hexsha = current_commit.short_id
 
     # Add commit to the git graph
     git_graph.add_commit(current_commit)
@@ -108,7 +118,7 @@ def build_commit_graph(path: str, repo_name: str, ignore_list: Optional[List[str
         git_graph.add_commit(parent_commit)
 
         # connect child parent commits relation
-        git_graph.connect_commits(child_commit.hex, parent_commit.hex)
+        git_graph.connect_commits(child_commit.short_id, parent_commit.short_id)
 
         # Represents the changes going backward!
         # e.g. which files need to be deleted when moving back one commit
@@ -120,41 +130,31 @@ def build_commit_graph(path: str, repo_name: str, ignore_list: Optional[List[str
 
         # Process file changes in this commit
         logging.info(f"""Computing diff between
-            child {child_commit.hexsha}: {child_commit.message}
-            and {parent_commit.hexsha}: {parent_commit.message}""")
+            child {child_commit.short_id}: {child_commit.message}
+            and {parent_commit.short_id}: {parent_commit.message}""")
 
-        diff = child_commit.diff(parent_commit)
-        added, deleted, modified = classify_changes(diff, ignore_list)
+        diff = repo.diff(child_commit, parent_commit)
+        added, deleted, modified = classify_changes(diff, repo, supported_types, ignore_list)
 
         # Checkout prev commit
-        logging.info(f"Checking out commit: {parent_commit.hexsha}")
-        repo.checkout(parent_commit.hex)
+        logging.info(f"Checking out commit: {parent_commit.short_id}")
+        repo.checkout_tree(parent_commit.tree, strategy=CheckoutStrategy.FORCE)
 
         #-----------------------------------------------------------------------
         # Apply changes going backwards
         #-----------------------------------------------------------------------
 
         # apply deletions
-        # TODO: a bit of a waste, compute in previous loop
-        deleted_files = []
-        for deleted_file_path in deleted:
-            _ext = os.path.splitext(deleted_file_path)[1]
-            if _ext in supported_types:
-                _path = os.path.dirname(deleted_file_path)
-                _name = os.path.basename(deleted_file_path)
-                deleted_files.append(
-                        {'path': _path, 'name': _name, 'ext' : _ext})
 
+        # reating modified files as both deleted and added
         # remove deleted files from the graph
-        if len(deleted_files) > 0:
-            logging.info(f"Removing deleted files: {deleted_files}")
-            g.delete_files(deleted_files)
+        if len(deleted + modified) > 0:
+            logging.info(f"Removing deleted files: {deleted + modified}")
+            g.delete_files(deleted + modified)
 
-        if len(added) > 0:
-            for new_file in added:
-                # New file been added
-                logging.info(f"Introducing a new source file: {new_file}")
-                analyzer.analyze_file(new_file, Path(path), g)
+        if len(added + modified) > 0:
+            logging.info(f"Introducing a new filed: {added + modified}")
+            analyzer.analyze_files(added + modified, Path(path), g)
 
         queries, params = g.clear_backlog()
 
@@ -167,15 +167,15 @@ def build_commit_graph(path: str, repo_name: str, ignore_list: Optional[List[str
 
             # Log transitions
             logging.debug(f"""Save graph transition from
-                             commit: {child_commit.hex}
+                             commit: {child_commit.short_id}
                              to
-                             commit: {parent_commit.hex}
+                             commit: {parent_commit.short_id}
                              Queries: {queries}
                              Parameters: {params}
                           """)
 
-            git_graph.set_parent_transition(child_commit.hex,
-                                            parent_commit.hex, queries, params)
+            git_graph.set_parent_transition(child_commit.short_id,
+                                            parent_commit.short_id, queries, params)
         # advance to the next commit
         child_commit = parent_commit
 
@@ -185,8 +185,8 @@ def build_commit_graph(path: str, repo_name: str, ignore_list: Optional[List[str
 
     logging.info("Computing transition queries moving forward")
     parent_commit = child_commit
-    while parent_commit.hex != current_commit_hexsha:
-        child_commit = git_graph.get_child_commit(parent_commit.hex)
+    while parent_commit.short_id != current_commit_hexsha:
+        child_commit = git_graph.get_child_commit(parent_commit.short_id)
         child_commit = repo.walk(child_commit['hash']).__next__()
 
         # Represents the changes going forward
@@ -194,41 +194,31 @@ def build_commit_graph(path: str, repo_name: str, ignore_list: Optional[List[str
 
         # Process file changes in this commit
         logging.info(f"""Computing diff between
-            child {parent_commit.hex}: {parent_commit.message}
-            and {child_commit.hex}: {child_commit.message}""")
+            child {parent_commit.short_id}: {parent_commit.message}
+            and {child_commit.short_id}: {child_commit.message}""")
 
         diff = repo.diff(parent_commit, child_commit)
-        added, deleted, modified = classify_changes(diff, ignore_list)
+        added, deleted, modified = classify_changes(diff, repo, supported_types, ignore_list)
 
         # Checkout child commit
-        logging.info(f"Checking out commit: {child_commit.hex}")
-        repo.checkout(child_commit.hex)
+        logging.info(f"Checking out commit: {child_commit.short_id}")
+        repo.checkout_tree(child_commit.tree, strategy=CheckoutStrategy.FORCE)
 
         #-----------------------------------------------------------------------
         # Apply changes going forward
         #-----------------------------------------------------------------------
 
         # apply deletions
-        # TODO: a bit of a waste, compute in previous loop
-        deleted_files = []
-        for deleted_file_path in deleted:
-            _ext = os.path.splitext(deleted_file_path)[1]
-            if _ext in supported_types:
-                _path = os.path.dirname(deleted_file_path)
-                _name = os.path.basename(deleted_file_path)
-                deleted_files.append(
-                        {'path': _path, 'name': _name, 'ext' : _ext})
 
+        # reating modified files as both deleted and added
         # remove deleted files from the graph
-        if len(deleted_files) > 0:
-            logging.info(f"Removing deleted files: {deleted_files}")
-            g.delete_files(deleted_files)
+        if len(deleted + modified) > 0:
+            logging.info(f"Removing deleted files: {deleted + modified}")
+            g.delete_files(deleted + modified)
 
-        if len(added) > 0:
-            for new_file in added:
-                # New file been added
-                logging.info(f"Introducing a new source file: {new_file}")
-                analyzer.analyze_file(new_file, Path(path), g)
+        if len(added + modified) > 0:
+            logging.info(f"Introducing a new files: {added + modified}")
+            analyzer.analyze_files(added + modified, Path(path), g)
 
         queries, params = g.clear_backlog()
 
@@ -241,15 +231,15 @@ def build_commit_graph(path: str, repo_name: str, ignore_list: Optional[List[str
 
             # Log transitions
             logging.debug(f"""Save graph transition from
-                             commit: {parent_commit.hex}
+                             commit: {parent_commit.short_id}
                              to
-                             commit: {child_commit.hex}
+                             commit: {child_commit.short_id}
                              Queries: {queries}
                              Parameters: {params}
                           """)
 
-            git_graph.set_child_transition(child_commit.hex,
-                                            parent_commit.hex, queries, params)
+            git_graph.set_child_transition(child_commit.short_id,
+                                            parent_commit.short_id, queries, params)
         # advance to the child_commit
         parent_commit = child_commit
 
@@ -267,7 +257,7 @@ def build_commit_graph(path: str, repo_name: str, ignore_list: Optional[List[str
 
     return git_graph
 
-def switch_commit(repo: str, to: str) -> dict[str, dict[str, list]]:
+def switch_commit(repo: str, to: str):
     """
     Switches the state of a graph repository from its current commit to the given commit.
 
@@ -278,21 +268,6 @@ def switch_commit(repo: str, to: str) -> dict[str, dict[str, list]]:
     Args:
         repo (str): The name of the graph repository to switch commits.
         to (str): The target commit hash to switch the graph to.
-
-    Returns:
-        dict: A dictionary containing the changes made during the commit switch, organized by:
-            - 'deletions': {
-                'nodes': List of node IDs deleted,
-                'edges': List of edge IDs deleted
-            },
-            - 'additions': {
-                'nodes': List of new Node objects added,
-                'edges': List of new Edge objects added
-            },
-            - 'modifications': {
-                'nodes': List of modified Node objects,
-                'edges': List of modified Edge objects
-            }
     """
 
     # Validate input arguments
@@ -303,22 +278,6 @@ def switch_commit(repo: str, to: str) -> dict[str, dict[str, list]]:
         raise ValueError("Invalid desired commit value")
 
     logging.info(f"Switching to commit: {to}")
-
-    # Initialize return value to an empty change set
-    change_set = {
-        'deletions': {
-            'nodes': [],
-            'edges': []
-        },
-        'additions': {
-            'nodes': [],
-            'edges': [],
-        },
-        'modifications': {
-            'nodes': [],
-            'edges': []
-        }
-    }
 
     # Initialize the graph and GitGraph objects
     g = Graph(repo)
@@ -331,7 +290,7 @@ def switch_commit(repo: str, to: str) -> dict[str, dict[str, list]]:
     if current_hash == to:
         logging.debug("Current commit: {current_hash} is the requested commit")
         # No change remain at the current commit
-        return change_set
+        return
 
     # Find the path between the current commit and the desired commit
     commits = git_graph.get_commits([current_hash, to])
@@ -367,14 +326,8 @@ def switch_commit(repo: str, to: str) -> dict[str, dict[str, list]]:
             logging.debug(f"Executing query: {_q} with params: {_p}")
 
             # Rerun the query with parameters on the graph
-            res = g.rerun_query(_q, _p)
-            if "DELETE" in _q:
-                deleted_nodes = res.result_set[0][0]
-                change_set['deletions']['nodes'] += deleted_nodes
+            g.rerun_query(_q, _p)
 
     # Update the graph's commit to the new target commit
     set_repo_commit(repo, to)
     logging.info(f"Graph commit updated to {to}")
-
-    return change_set
-

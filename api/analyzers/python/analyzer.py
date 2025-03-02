@@ -1,6 +1,9 @@
+import os
 import subprocess
 from multilspy import SyncLanguageServer
 from pathlib import Path
+
+import toml
 from ...entities import *
 from typing import Optional
 from ..analyzer import AbstractAnalyzer
@@ -15,15 +18,23 @@ class PythonAnalyzer(AbstractAnalyzer):
     def __init__(self) -> None:
         super().__init__(Language(tspython.language()))
     
-    def add_dependencies(self, path: Path, files: dict[Path, File]):
+    def add_dependencies(self, path: Path, files: list[Path]):
         if Path(f"{path}/venv").is_dir():
             return
-        subprocess.run(["python3", "-m", "venv", f"{path}/venv"])
-        if Path(f"{path}/requirements.txt").is_file():
-            subprocess.run([f"{path}/venv/bin/pip", "install", "-r", "requirements.txt"])
+        subprocess.run(["python3", "-m", "venv", "venv"], cwd=str(path))
         if Path(f"{path}/pyproject.toml").is_file():
-            subprocess.run([f"{path}/venv/bin/pip", "install", "poetry"])
-            subprocess.run([f"{path}/venv/bin/poetry", "install"])
+            subprocess.run(["pip", "install", "poetry"], cwd=str(path), env={"VIRTUAL_ENV": f"{path}/venv", "PATH": f"{path}/venv/bin:{os.environ['PATH']}"})
+            subprocess.run(["poetry", "install"], cwd=str(path), env={"VIRTUAL_ENV": f"{path}/venv", "PATH": f"{path}/venv/bin:{os.environ['PATH']}"})
+            with open(f"{path}/pyproject.toml", 'r') as file:
+                pyproject_data = toml.load(file)
+                for requirement in pyproject_data.get("tool").get("poetry").get("dependencies"):
+                    files.extend(Path(f"{path}/venv/lib").rglob(f"**/site-packages/{requirement}/*.py"))
+        elif Path(f"{path}/requirements.txt").is_file():
+            subprocess.run(["pip", "install", "-r", "requirements.txt"], cwd=str(path), env={"VIRTUAL_ENV": f"{path}/venv", "PATH": f"{path}/venv/bin:{os.environ['PATH']}"})
+            with open(f"{path}/requirements.txt", 'r') as file:
+                requirements = [line.strip().split("==") for line in file if line.strip()]
+                for requirement in requirements:
+                    files.extend(Path(f"{path}/venv/lib/").rglob(f"**/site-packages/{requirement}/*.py"))
 
     def get_entity_label(self, node: Node) -> str:
         if node.type == 'class_definition':
