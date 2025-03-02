@@ -19,7 +19,7 @@ class JavaAnalyzer(AbstractAnalyzer):
     def __init__(self) -> None:
         super().__init__(Language(tsjava.language()))
 
-    def add_dependencies(self, path: Path, files: dict[Path, File]):
+    def add_dependencies(self, path: Path, files: list[Path]):
         # if not Path("java-decompiler-engine-243.23654.153.jar").is_file():
         #     subprocess.run(["wget", "https://www.jetbrains.com/intellij-repository/releases/com/jetbrains/intellij/java/java-decompiler-engine/243.23654.153/java-decompiler-engine-243.23654.153.jar"])
         subprocess.run(["rm", "-rf", f"{path}/temp_deps"])
@@ -35,6 +35,7 @@ class JavaAnalyzer(AbstractAnalyzer):
             # subprocess.run(["java", "-jar", "java-decompiler-engine-243.23654.153.jar", "-hdc=0 -iib=1 -rsy=1 -rbr=1 -dgs=1 -din=1 -den=1 -asc=1 -bsm=1", jar_path, f"{path}/temp_deps/{artifactId}-{version}"])
             subprocess.run(["cp", jar_path, f"{artifactId}-{version}.jar"], cwd=f"{path}/temp_deps/{artifactId}-{version}")
             subprocess.run(["unzip", f"{artifactId}-{version}.jar"], cwd=f"{path}/temp_deps/{artifactId}-{version}")
+        files.extend(Path(f"{path}/temp_deps").rglob("*.java"))
 
     def get_entity_label(self, node: Node) -> str:
         if node.type == 'class_declaration':

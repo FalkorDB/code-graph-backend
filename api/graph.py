@@ -405,7 +405,7 @@ class Graph():
         node    = res.result_set[0][0]
         file.id = node.id
 
-    def delete_files(self, files: list[dict]) -> tuple[str, dict, list[int]]:
+    def delete_files(self, files: list[Path]) -> tuple[str, dict, list[int]]:
         """
         Deletes file(s) from the graph in addition to any other entity
         defined in the file
@@ -416,18 +416,12 @@ class Graph():
 
         q = """UNWIND $files AS file
                MATCH (f:File {path: file['path'], name: file['name'], ext: file['ext']})
-               WITH collect(f) AS Fs
-               UNWIND Fs AS f
-               OPTIONAL MATCH (f)-[:DEFINES]->(e)
-               WITH Fs, collect(e) AS Es
-               WITH Fs + Es AS entities
-               UNWIND entities AS e
-               DELETE e
-               RETURN collect(ID(e))
+               OPTIONAL MATCH (f)-[:DEFINES*]->(e)
+               DELETE f, e
         """
 
-        params = {'files': files}
-        res = self._query(q, params)
+        params = {'files': [{'path': str(file_path), 'name': file_path.name, 'ext' : file_path.suffix} for file_path in files]}
+        self._query(q, params)
 
         return None
 

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "code-graph-backend"
-version = "0.3.0"
+version = "0.4.0"
 description = "code_graph is designed to help developers visualize and analyze the structure of their source code. It takes source code as input and generates a graph representation, making it easier to understand relationships and dependencies within the codebase."
 authors = ["Roi Lipman <roilipman@gmail.com>"]
 readme = "README.md"
@@ -19,6 +19,7 @@ python-dotenv = "^1.0.1"
 multilspy = {git = "https://github.com/AviAvni/multilspy.git", rev = "python-init-params"}
 javatools = "^1.6.0"
 pygit2 = "^1.17.0"
+toml = "^0.10.2"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.2.0"

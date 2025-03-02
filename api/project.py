@@ -80,14 +80,14 @@ class Project():
     def analyze_sources(self, ignore: Optional[List[str]] = None) -> Graph:
         if ignore is None:
             ignore = []
-        analyzer = SourceAnalyzer()
-        analyzer.analyze_local_folder(self.path, self.graph, ignore)
+        self.analyzer = SourceAnalyzer()
+        self.analyzer.analyze_local_folder(self.path, self.graph, ignore)
 
         try:
             # Save processed commit hash to the DB
             repo = Repository(self.path)
             current_commit = repo.walk(repo.head.target).__next__()
-            set_repo_commit(self.name, current_commit.hex)
+            set_repo_commit(self.name, current_commit.short_id)
         except Exception:
             # Probably not .git folder is missing
             pass
@@ -104,7 +104,7 @@ class Project():
         logging.info(f"Switching current working directory to: {self.path}")
         os.chdir(self.path)
 
-        git_graph = build_commit_graph(self.path, self.name, ignore)
+        git_graph = build_commit_graph(self.path, self.analyzer, self.name, ignore)
 
         # Restore original working directory
         logging.info(f"Restoring current working directory to: {original_dir}")

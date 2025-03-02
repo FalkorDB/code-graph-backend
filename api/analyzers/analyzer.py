@@ -54,7 +54,7 @@ class AbstractAnalyzer(ABC):
             return []
         
     @abstractmethod
-    def add_dependencies(self, path: Path, files: dict[Path, File]):
+    def add_dependencies(self, path: Path, files: list[Path]):
         """
         Add dependencies to the files.
 

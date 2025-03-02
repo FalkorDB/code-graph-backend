@@ -54,12 +54,12 @@ class Test_Git_History(unittest.TestCase):
         c = repo.commit("HEAD")
 
         while True:
-            commits = git_graph.get_commits([c.hexsha])
+            commits = git_graph.get_commits([c.short_id])
 
             self.assertEqual(len(commits), 1)
             actual = commits[0]
 
-            self.assertEqual(c.hexsha,         actual['hash'])
+            self.assertEqual(c.short_id,       actual['hash'])
             self.assertEqual(c.message,        actual['message'])
             self.assertEqual(c.author.name,    actual['author'])
             self.assertEqual(c.committed_date, actual['date'])
