@@ -1673,7 +1673,7 @@ requests = "2.32.3"
 type = "git"
 url = "https://github.com/AviAvni/multilspy.git"
 reference = "python-init-params"
-resolved_reference = "5206eeb675a3a07971b829a400024e4846dc0856"
+resolved_reference = "1840bb9587d3d8b2fd5c50be4e75f011dab4c0f8"
 
 [[package]]
 name = "nest-asyncio"
