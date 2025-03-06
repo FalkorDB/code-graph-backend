@@ -7,6 +7,7 @@ from flask import Flask, request, jsonify
 
 from api.analyzers.source_analyzer import SourceAnalyzer
 from api.git_utils import git_utils
+from api.git_utils.git_graph import GitGraph
 from api.graph import Graph, get_repos, graph_exists
 from api.info import get_repo_info
 from api.llm import ask
@@ -445,6 +446,44 @@ def switch_commit():
     # Create a success response
     response = {
         'status': 'success'
+    }
+
+    return jsonify(response), 200
+
+@app.route('/list_commits', methods=['POST'])
+@public_access  # Apply public access decorator
+@token_required  # Apply token authentication decorator
+def list_commits():
+    """
+    Endpoint to list all commits of a specified repository.
+
+    Request JSON Structure:
+    {
+        "repo": "repository_name"
+    }
+
+    Returns:
+        JSON response with a list of commits or an error message.
+    """
+
+    # Get JSON data from the request
+    data = request.get_json()
+
+    # Validate the presence of the 'repo' parameter
+    repo = data.get('repo')
+    if repo is None:
+        return jsonify({'status': f'Missing mandatory parameter "repo"'}), 400
+
+    # Initialize GitGraph object to interact with the repository
+    git_graph = GitGraph(git_utils.GitRepoName(repo))
+
+    # Fetch commits from the repository
+    commits = git_graph.list_commits()
+
+    # Return success response with the list of commits
+    response = {
+        'status': 'success',
+        'commits': commits
     }
 
     return jsonify(response), 200
