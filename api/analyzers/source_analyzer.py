@@ -144,7 +144,7 @@ class SourceAnalyzer():
                 for _, entity in file.entities.items():
                     entity.resolved_symbol(lambda key, symbol: analyzers[file_path.suffix].resolve_symbol(self.files, lsps[file_path.suffix], file_path, path, key, symbol))
                     for key, symbols in entity.resolved_symbols.items():
-                        for symbol in symbols:
+                        for i, symbol in enumerate(symbols):
                             if key == "base_class":
                                 graph.connect_entities("EXTENDS", entity.id, symbol.id)
                             elif key == "implement_interface":
@@ -152,7 +152,7 @@ class SourceAnalyzer():
                             elif key == "extend_interface":
                                 graph.connect_entities("EXTENDS", entity.id, symbol.id)
                             elif key == "call":
-                                graph.connect_entities("CALLS", entity.id, symbol.id)
+                                graph.connect_entities("CALLS", entity.id, symbol.id, {"line": entity.symbols[key][i].start_point.row, "text": entity.symbols[key][i].text})
                             elif key == "return_type":
                                 graph.connect_entities("RETURNS", entity.id, symbol.id)
                             elif key == "parameters":

@@ -479,7 +479,7 @@ class Graph():
 
         res = self._query(q, params)
 
-    def connect_entities(self, relation: str, src_id: int, dest_id: int) -> None:
+    def connect_entities(self, relation: str, src_id: int, dest_id: int, properties: dict) -> None:
         """
         Establish a relationship between src and dest
 
@@ -491,9 +491,10 @@ class Graph():
         q = f"""MATCH (src), (dest)
                 WHERE ID(src) = $src_id AND ID(dest) = $dest_id
                 MERGE (src)-[e:{relation}]->(dest)
+                SET e += $properties
                 RETURN e"""
 
-        params = {'src_id': src_id, 'dest_id': dest_id}
+        params = {'src_id': src_id, 'dest_id': dest_id, properties: properties}
         self._query(q, params)
 
     def function_calls_function(self, caller_id: int, callee_id: int, pos: int) -> None:
