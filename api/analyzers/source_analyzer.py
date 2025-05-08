@@ -144,7 +144,7 @@ class SourceAnalyzer():
                 for _, entity in file.entities.items():
                     entity.resolved_symbol(lambda key, symbol: analyzers[file_path.suffix].resolve_symbol(self.files, lsps[file_path.suffix], file_path, path, key, symbol))
                     for key, symbols in entity.symbols.items():
-                        for i, symbol in enumerate(symbols):
+                        for symbol in symbols:
                             if len(symbol.resolved_symbol) == 0:
                                 continue
                             resolved_symbol = next(iter(symbol.resolved_symbol))
