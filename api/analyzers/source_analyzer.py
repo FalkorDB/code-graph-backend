@@ -143,20 +143,23 @@ class SourceAnalyzer():
                 logging.info(f'Processing file ({i + 1}/{files_len}): {file_path}')
                 for _, entity in file.entities.items():
                     entity.resolved_symbol(lambda key, symbol: analyzers[file_path.suffix].resolve_symbol(self.files, lsps[file_path.suffix], file_path, path, key, symbol))
-                    for key, symbols in entity.resolved_symbols.items():
+                    for key, symbols in entity.symbols.items():
                         for i, symbol in enumerate(symbols):
+                            if len(symbol.resolved_symbol) == 0:
+                                continue
+                            resolved_symbol = next(iter(symbol.resolved_symbol))
                             if key == "base_class":
-                                graph.connect_entities("EXTENDS", entity.id, symbol.id)
+                                graph.connect_entities("EXTENDS", entity.id, resolved_symbol.id)
                             elif key == "implement_interface":
-                                graph.connect_entities("IMPLEMENTS", entity.id, symbol.id)
+                                graph.connect_entities("IMPLEMENTS", entity.id, resolved_symbol.id)
                             elif key == "extend_interface":
-                                graph.connect_entities("EXTENDS", entity.id, symbol.id)
+                                graph.connect_entities("EXTENDS", entity.id, resolved_symbol.id)
                             elif key == "call":
-                                graph.connect_entities("CALLS", entity.id, symbol.id, {"line": entity.symbols[key][i].start_point.row, "text": entity.symbols[key][i].text})
+                                graph.connect_entities("CALLS", entity.id, resolved_symbol.id, {"line": symbol.symbol.start_point.row, "text": symbol.symbol.text.decode("utf-8")})
                             elif key == "return_type":
-                                graph.connect_entities("RETURNS", entity.id, symbol.id)
+                                graph.connect_entities("RETURNS", entity.id, resolved_symbol.id)
                             elif key == "parameters":
-                                graph.connect_entities("PARAMETERS", entity.id, symbol.id)
+                                graph.connect_entities("PARAMETERS", entity.id, resolved_symbol.id)
 
     def analyze_files(self, files: list[Path], path: Path, graph: Graph) -> None:
         self.first_pass(path, files, [], graph)
