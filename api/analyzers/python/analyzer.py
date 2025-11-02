@@ -152,42 +152,54 @@ class PythonAnalyzer(AbstractAnalyzer):
         """
         res = []
         
-        # For import statements like "import os" or "from pathlib import Path"
-        # We need to find the dotted_name nodes that represent the imported modules/names
-        import warnings
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
+        try:
             if import_node.type == 'import_statement':
                 # Handle "import module" or "import module as alias"
-                # Look for dotted_name or aliased_import
-                query = self.language.query("(dotted_name) @module (aliased_import) @aliased")
-            else:  # import_from_statement
-                # Handle "from module import name"
-                # Get the imported names (after the 'import' keyword)
-                query = self.language.query("""
-                    (import_from_statement
-                        (dotted_name) @imported_name)
-                """)
+                # Find all dotted_name and aliased_import nodes
+                for child in import_node.children:
+                    if child.type == 'dotted_name':
+                        # Try to resolve the module/name
+                        identifier = child.children[0] if child.child_count > 0 else child
+                        resolved = self.resolve_type(files, lsp, file_path, path, identifier)
+                        res.extend(resolved)
+                    elif child.type == 'aliased_import':
+                        # Get the actual name from aliased import (before 'as')
+                        if child.child_count > 0:
+                            actual_name = child.children[0]
+                            if actual_name.type == 'dotted_name' and actual_name.child_count > 0:
+                                identifier = actual_name.children[0]
+                            else:
+                                identifier = actual_name
+                            resolved = self.resolve_type(files, lsp, file_path, path, identifier)
+                            res.extend(resolved)
+            
+            elif import_node.type == 'import_from_statement':
+                # Handle "from module import name1, name2"
+                # Find the 'import' keyword to know where imported names start
+                import_keyword_found = False
+                for child in import_node.children:
+                    if child.type == 'import':
+                        import_keyword_found = True
+                        continue
+                    
+                    # After 'import' keyword, dotted_name nodes are the imported names
+                    if import_keyword_found and child.type == 'dotted_name':
+                        # Try to resolve the imported name
+                        identifier = child.children[0] if child.child_count > 0 else child
+                        resolved = self.resolve_type(files, lsp, file_path, path, identifier)
+                        res.extend(resolved)
+                    elif import_keyword_found and child.type == 'aliased_import':
+                        # Handle "from module import name as alias"
+                        if child.child_count > 0:
+                            actual_name = child.children[0]
+                            if actual_name.type == 'dotted_name' and actual_name.child_count > 0:
+                                identifier = actual_name.children[0]
+                            else:
+                                identifier = actual_name
+                            resolved = self.resolve_type(files, lsp, file_path, path, identifier)
+                            res.extend(resolved)
         
-        captures = query.captures(import_node)
-        
-        # Try to resolve each imported name
-        if 'module' in captures:
-            for module_node in captures['module']:
-                resolved = self.resolve_type(files, lsp, file_path, path, module_node)
-                res.extend(resolved)
-        
-        if 'aliased' in captures:
-            for aliased_node in captures['aliased']:
-                # Get the actual module name from the aliased import
-                if aliased_node.child_count > 0:
-                    module_name_node = aliased_node.children[0]
-                    resolved = self.resolve_type(files, lsp, file_path, path, module_name_node)
-                    res.extend(resolved)
-        
-        if 'imported_name' in captures:
-            for name_node in captures['imported_name']:
-                resolved = self.resolve_type(files, lsp, file_path, path, name_node)
-                res.extend(resolved)
+        except Exception as e:
+            logger.debug(f"Failed to resolve import: {e}")
         
         return res
