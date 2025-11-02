@@ -125,26 +125,36 @@ class PythonAnalyzer(AbstractAnalyzer):
     def add_file_imports(self, file: File) -> None:
         """
         Extract and add import statements from the file.
+        
+        Supports:
+        - import module
+        - import module as alias
+        - from module import name
+        - from module import name1, name2
+        - from module import name as alias
         """
-        import warnings
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            # Query for both import types
-            import_query = self.language.query("""
-                (import_statement) @import
-                (import_from_statement) @import_from
-            """)
-        
-        captures = import_query.captures(file.tree.root_node)
-        
-        # Add all import statement nodes to the file
-        if 'import' in captures:
-            for import_node in captures['import']:
-                file.add_import(import_node)
-        
-        if 'import_from' in captures:
-            for import_node in captures['import_from']:
-                file.add_import(import_node)
+        try:
+            import warnings
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                # Query for both import types
+                import_query = self.language.query("""
+                    (import_statement) @import
+                    (import_from_statement) @import_from
+                """)
+            
+            captures = import_query.captures(file.tree.root_node)
+            
+            # Add all import statement nodes to the file
+            if 'import' in captures:
+                for import_node in captures['import']:
+                    file.add_import(import_node)
+            
+            if 'import_from' in captures:
+                for import_node in captures['import_from']:
+                    file.add_import(import_node)
+        except Exception as e:
+            logger.debug(f"Failed to extract imports from {file.path}: {e}")
 
     def resolve_import(self, files: dict[Path, File], lsp: SyncLanguageServer, file_path: Path, path: Path, import_node: Node) -> list[Entity]:
         """
