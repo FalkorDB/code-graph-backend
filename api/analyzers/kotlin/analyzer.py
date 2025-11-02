@@ -1,6 +1,4 @@
-import os
 from pathlib import Path
-import subprocess
 from ...entities import *
 from typing import Optional
 from ..analyzer import AbstractAnalyzer
