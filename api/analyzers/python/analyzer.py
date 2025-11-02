@@ -121,3 +121,73 @@ class PythonAnalyzer(AbstractAnalyzer):
             return self.resolve_method(files, lsp, file_path, path, symbol)
         else:
             raise ValueError(f"Unknown key {key}")
+
+    def add_file_imports(self, file: File) -> None:
+        """
+        Extract and add import statements from the file.
+        """
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            # Query for both import types
+            import_query = self.language.query("""
+                (import_statement) @import
+                (import_from_statement) @import_from
+            """)
+        
+        captures = import_query.captures(file.tree.root_node)
+        
+        # Add all import statement nodes to the file
+        if 'import' in captures:
+            for import_node in captures['import']:
+                file.add_import(import_node)
+        
+        if 'import_from' in captures:
+            for import_node in captures['import_from']:
+                file.add_import(import_node)
+
+    def resolve_import(self, files: dict[Path, File], lsp: SyncLanguageServer, file_path: Path, path: Path, import_node: Node) -> list[Entity]:
+        """
+        Resolve an import statement to the entities it imports.
+        """
+        res = []
+        
+        # For import statements like "import os" or "from pathlib import Path"
+        # We need to find the dotted_name nodes that represent the imported modules/names
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            if import_node.type == 'import_statement':
+                # Handle "import module" or "import module as alias"
+                # Look for dotted_name or aliased_import
+                query = self.language.query("(dotted_name) @module (aliased_import) @aliased")
+            else:  # import_from_statement
+                # Handle "from module import name"
+                # Get the imported names (after the 'import' keyword)
+                query = self.language.query("""
+                    (import_from_statement
+                        (dotted_name) @imported_name)
+                """)
+        
+        captures = query.captures(import_node)
+        
+        # Try to resolve each imported name
+        if 'module' in captures:
+            for module_node in captures['module']:
+                resolved = self.resolve_type(files, lsp, file_path, path, module_node)
+                res.extend(resolved)
+        
+        if 'aliased' in captures:
+            for aliased_node in captures['aliased']:
+                # Get the actual module name from the aliased import
+                if aliased_node.child_count > 0:
+                    module_name_node = aliased_node.children[0]
+                    resolved = self.resolve_type(files, lsp, file_path, path, module_name_node)
+                    res.extend(resolved)
+        
+        if 'imported_name' in captures:
+            for name_node in captures['imported_name']:
+                resolved = self.resolve_type(files, lsp, file_path, path, name_node)
+                res.extend(resolved)
+        
+        return res
