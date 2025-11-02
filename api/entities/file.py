@@ -1,6 +1,5 @@
 from pathlib import Path
 from tree_sitter import Node, Tree
-from typing import Self
 
 from api.entities.entity import Entity
 
@@ -23,7 +22,7 @@ class File:
         self.tree = tree
         self.entities: dict[Node, Entity] = {}
         self.imports: list[Node] = []
-        self.resolved_imports: set[Self] = set()
+        self.resolved_imports: set[Entity] = set()
 
     def add_entity(self, entity: Entity):
         entity.parent = self
@@ -38,12 +37,12 @@ class File:
         """
         self.imports.append(import_node)
     
-    def add_resolved_import(self, resolved_entity: Self):
+    def add_resolved_import(self, resolved_entity: Entity):
         """
         Add a resolved import entity.
         
         Args:
-            resolved_entity (Self): The resolved entity that is imported.
+            resolved_entity (Entity): The resolved entity that is imported.
         """
         self.resolved_imports.add(resolved_entity)
 
