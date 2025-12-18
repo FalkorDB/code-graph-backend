@@ -12,7 +12,7 @@ from typing import Optional, List
 from urllib.parse import urlparse
 from .analyzers import SourceAnalyzer
 from .git_utils import build_commit_graph, GitGraph
-
+from .index import RequestTracker
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -77,11 +77,11 @@ class Project():
 
         return cls(name, path, url)
 
-    def analyze_sources(self, ignore: Optional[List[str]] = None) -> Graph:
+    def analyze_sources(self, analyze_requests: RequestTracker = None, ignore: Optional[List[str]] = None) -> Graph:
         if ignore is None:
             ignore = []
         self.analyzer = SourceAnalyzer()
-        self.analyzer.analyze_local_folder(self.path, self.graph, ignore)
+        self.analyzer.analyze_local_folder(self.path, self.graph, analyze_requests, ignore)
 
         try:
             # Save processed commit hash to the DB
@@ -94,7 +94,7 @@ class Project():
 
         return self.graph
 
-    def process_git_history(self, ignore: Optional[List[str]] = []) -> GitGraph:
+    def process_git_history(self, analyze_requests: RequestTracker = None, ignore: Optional[List[str]] = []) -> GitGraph:
         logging.info(f"processing {self.name} git commit history")
 
         # Save original working directory for later restore
@@ -104,7 +104,7 @@ class Project():
         logging.info(f"Switching current working directory to: {self.path}")
         os.chdir(self.path)
 
-        git_graph = build_commit_graph(self.path, self.analyzer, self.name, ignore)
+        git_graph = build_commit_graph(self.path, self.analyzer, self.name, ignore, analyze_requests)
 
         # Restore original working directory
         logging.info(f"Restoring current working directory to: {original_dir}")

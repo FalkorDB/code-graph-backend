@@ -1,9 +1,13 @@
 """ Main API module for CodeGraph. """
+from concurrent.futures import ThreadPoolExecutor
 import os
 from pathlib import Path
 from functools import wraps
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
+from threading import Timer
+from typing import Dict, Tuple
+from time import time
 
 from api.analyzers.source_analyzer import SourceAnalyzer
 from api.git_utils import git_utils
@@ -380,6 +384,58 @@ def analyze_folder():
         }
     return jsonify(response), 200
 
+class RequestTracker:
+        
+    def __init__(self, timeout_seconds: int = 3):  # 3 seconds default timeout
+        self.requests: Dict[int, Tuple[int, int, int, Timer]] = {}  # id -> (first_pass, second_pass, git_history, timer)
+        self.timeout_seconds = timeout_seconds
+
+    def add_request(self, request_id: int) -> None:
+        # Create new timer
+        timer = Timer(self.timeout_seconds, self.remove_request, args=[request_id])
+        timer.start()
+        
+        # Store (first_pass, second_pass, git_history, timer)
+        self.requests[request_id] = (0, 0, 0, timer)
+
+    def get_progress(self, request_id: int) -> Tuple[int, int, int] | int: # (first_pass, second_pass, git_history) | -1 if not found
+        if request_id not in self.requests:
+            return -1
+        
+        first_pass, second_pass, git_history, _ = self.requests[request_id]
+        
+        return (first_pass, second_pass, git_history)
+
+    def update_first_pass_progress(self, request_id: int, progress: int) -> None:
+        if request_id in self.requests:
+            _, second_pass, git_history, timer = self.requests[request_id]
+            self.requests[request_id] = (progress, second_pass, git_history, timer)
+    
+    def update_second_pass_progress(self, request_id: int, progress: int) -> None:
+        if request_id in self.requests:
+            first_pass, _, git_history, timer = self.requests[request_id]
+            self.requests[request_id] = (first_pass, progress, git_history, timer)
+    
+    def update_git_history_progress(self, request_id: int, progress: int) -> None:
+        if request_id in self.requests:
+            first_pass, second_pass, _, timer = self.requests[request_id]
+            self.requests[request_id] = (first_pass, second_pass, progress, timer)
+
+    def remove_request(self, request_id: int) -> None:
+        if request_id in self.requests:
+            _, timer = self.requests.pop(request_id)
+            timer.cancel()
+
+# Replace the simple dict with RequestTracker instance
+analyze_requests = RequestTracker()
+
+def generate_id():
+    """ Generate a unique ID """
+    id = 1
+    while True:
+        yield id
+        id += 1
+
 @app.route('/analyze_repo', methods=['POST'])
 @public_access  # Apply public access decorator
 @token_required  # Apply token authentication decorator
@@ -397,21 +453,64 @@ def analyze_repo():
         JSON response with processing status
     """
 
+    id = next(generate_id())
+    analyze_requests.add_request(id)
     data = request.get_json()
     url = data.get('repo_url')
+
     if url is None:
         return jsonify({'status': 'Missing mandatory parameter "url"'}), 400
     logger.debug('Received repo_url: %s', url)
 
     ignore = data.get('ignore', [])
+    
+    def analyze_sources_callback() -> None:
+        proj = Project.from_git_repository(url)
+        proj.analyze_sources(analyze_requests, ignore)
+        proj.process_git_history(analyze_requests, ignore)
 
-    proj = Project.from_git_repository(url)
-    proj.analyze_sources(ignore)
-    proj.process_git_history(ignore)
-
+    executor = ThreadPoolExecutor(max_workers=1)
+    executor.submit(analyze_sources_callback)
+    
     # Create a response
     response = {
         'status': 'success',
+        'id': id
+    }
+
+    return jsonify(response), 200
+
+@app.route('/get_analyze_progress', methods=['GET'])
+@public_access  # Apply public access decorator
+@token_required  # Apply token authentication decorator
+def get_analyze_progress():
+    """
+    Get the progress of the analyze request.
+
+    Expects 'id' as query parameter.
+
+    Returns:
+        JSON response with the progress of the analyze request.
+    """
+    
+    id = request.args.get('id')
+    
+    if id is None:
+        return jsonify({'status': 'Missing mandatory parameter "id"'}), 400
+    
+    progress = analyze_requests.get_progress(id)
+
+    if progress == -1:
+        return jsonify({'status': 'Analysis request not found'}), 404
+    
+    first_pass, second_pass, git_history = progress
+
+    # Create a response
+    # Return the progress and message of the current step of the analyze request and -1 and "Done" if done
+    response = {
+        'status': 'success',
+        'progress': first_pass if first_pass < 100 else second_pass if second_pass < 100 else git_history if git_history < 100 else -1,
+        'message': "Analyzing sources" if first_pass < 100 else "Analyzing second pass" if second_pass < 100 else "Analyzing git history" if git_history < 100 else "Done"
     }
 
     return jsonify(response), 200

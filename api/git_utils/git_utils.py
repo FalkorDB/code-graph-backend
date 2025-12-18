@@ -10,7 +10,7 @@ from ..graph import Graph
 from .git_graph import GitGraph
 from typing import List, Optional
 from ..analyzers import SourceAnalyzer
-
+from ..index import RequestTracker
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(filename)s - %(asctime)s - %(levelname)s - %(message)s')
 
@@ -70,7 +70,7 @@ def classify_changes(
     return added, deleted, modified
 
 # build a graph capturing the git commit history
-def build_commit_graph(path: str, analyzer: SourceAnalyzer, repo_name: str, ignore_list: Optional[List[str]] = None) -> GitGraph:
+def build_commit_graph(path: str, analyzer: SourceAnalyzer, repo_name: str, ignore_list: Optional[List[str]] = None, analyze_requests: RequestTracker = None) -> GitGraph:
     """
     Builds a graph representation of the git commit history.
 
@@ -111,6 +111,8 @@ def build_commit_graph(path: str, analyzer: SourceAnalyzer, repo_name: str, igno
     logging.info("Computing transition queries moving backwards")
 
     child_commit = current_commit
+    files_len = len(child_commit.parents)
+    current_index = 1
     while len(child_commit.parents) > 0:
         parent_commit = child_commit.parents[0]
 
@@ -178,6 +180,9 @@ def build_commit_graph(path: str, analyzer: SourceAnalyzer, repo_name: str, igno
                                             parent_commit.short_id, queries, params)
         # advance to the next commit
         child_commit = parent_commit
+        if analyze_requests:
+            analyze_requests.update_git_history_progress(id, current_index / files_len * 100)
+        current_index += 1
 
     #--------------------------------------------------------------------------
     # Process git history going forward

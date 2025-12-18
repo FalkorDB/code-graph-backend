@@ -14,6 +14,7 @@ from .python.analyzer import PythonAnalyzer
 from multilspy import SyncLanguageServer
 from multilspy.multilspy_config import MultilspyConfig
 from multilspy.multilspy_logger import MultilspyLogger
+from ..index import RequestTracker
 
 import logging
 # Configure logging
@@ -72,7 +73,7 @@ class SourceAnalyzer():
             else:
                 stack.extend(node.children)
 
-    def first_pass(self, path: Path, files: list[Path], ignore: list[str], graph: Graph) -> None:
+    def first_pass(self, path: Path, files: list[Path], ignore: list[str], graph: Graph, analyze_requests: RequestTracker = None) -> None:
         """
         Perform the first pass analysis on source files in the given directory tree.
 
@@ -112,8 +113,10 @@ class SourceAnalyzer():
             # Walk thought the AST
             graph.add_file(file)
             self.create_hierarchy(file, analyzer, graph)
+            if analyze_requests:
+                analyze_requests.update_first_pass_progress(id, i / files_len * 100)
 
-    def second_pass(self, graph: Graph, files: list[Path], path: Path) -> None:
+    def second_pass(self, graph: Graph, files: list[Path], path: Path, analyze_requests: RequestTracker = None) -> None:
         """
         Recursively analyze the contents of a directory.
 
@@ -157,20 +160,22 @@ class SourceAnalyzer():
                                 graph.connect_entities("RETURNS", entity.id, symbol.id)
                             elif key == "parameters":
                                 graph.connect_entities("PARAMETERS", entity.id, symbol.id)
+                if analyze_requests:
+                    analyze_requests.update_second_pass_progress(id, i / files_len * 100)
 
     def analyze_files(self, files: list[Path], path: Path, graph: Graph) -> None:
         self.first_pass(path, files, [], graph)
         self.second_pass(graph, files, path)
 
-    def analyze_sources(self, path: Path, ignore: list[str], graph: Graph) -> None:
+    def analyze_sources(self, path: Path, ignore: list[str], graph: Graph, analyze_requests: RequestTracker = None) -> None:
         files = list(path.rglob("*.java")) + list(path.rglob("*.py"))
         # First pass analysis of the source code
-        self.first_pass(path, files, ignore, graph)
+        self.first_pass(path, files, ignore, graph, analyze_requests)
 
         # Second pass analysis of the source code
-        self.second_pass(graph, files, path)
+        self.second_pass(graph, files, path, analyze_requests)
 
-    def analyze_local_folder(self, path: str, g: Graph, ignore: Optional[list[str]] = []) -> None:
+    def analyze_local_folder(self, path: str, g: Graph, analyze_requests: RequestTracker = None, ignore: Optional[list[str]] = []) -> None:
         """
         Analyze path.
 
@@ -182,7 +187,7 @@ class SourceAnalyzer():
         logging.info(f"Analyzing local folder {path}")
 
         # Analyze source files
-        self.analyze_sources(Path(path), ignore, g)
+        self.analyze_sources(Path(path), ignore, g, analyze_requests)
 
         logging.info("Done analyzing path")
 
