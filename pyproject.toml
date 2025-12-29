@@ -22,7 +22,7 @@ pygit2 = "^1.17.0"
 toml = "^0.10.2"
 
 [tool.poetry.group.test.dependencies]
-pytest = "^8.2.0"
+pytest = "^9.0.2"
 
 [build-system]
 requires = ["poetry-core"]
