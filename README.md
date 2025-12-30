@@ -41,6 +41,103 @@ For example:
 curl -X POST http://127.0.0.1:5000/analyze_folder -H "Content-Type: application/json" -d '{"path": "/Users/roilipman/Dev/GraphRAG-SDK", "ignore": ["./.github", "./build"]}' -H "Authorization: OpenSesame"
 ```
 
+## API Reference
+
+### Retrieve a graph
+
+Fetch graph entities from a repository:
+
+```bash
+curl -X GET "http://127.0.0.1:5000/graph_entities?repo=<REPO_NAME>" -H "Authorization: <.ENV_SECRET_TOKEN>"
+```
+
+For example:
+
+```bash
+curl -X GET "http://127.0.0.1:5000/graph_entities?repo=GraphRAG-SDK" -H "Authorization: OpenSesame"
+```
+
+Response:
+```json
+{
+  "status": "success",
+  "entities": {
+    "nodes": [...],
+    "edges": [...]
+  }
+}
+```
+
+### Send Query
+
+Query your code graph using natural language:
+
+```bash
+curl -X POST http://127.0.0.1:5000/chat -H "Content-Type: application/json" -d '{"repo": "<REPO_NAME>", "msg": "<YOUR_QUESTION>"}' -H "Authorization: <.ENV_SECRET_TOKEN>"
+```
+
+For example:
+
+```bash
+curl -X POST http://127.0.0.1:5000/chat -H "Content-Type: application/json" -d '{"repo": "GraphRAG-SDK", "msg": "What are the main classes in this project?"}' -H "Authorization: OpenSesame"
+```
+
+Response:
+```json
+{
+  "status": "success",
+  "response": "The main classes in this project are..."
+}
+```
+
+### History change
+
+List all commits in a repository:
+
+```bash
+curl -X POST http://127.0.0.1:5000/list_commits -H "Content-Type: application/json" -d '{"repo": "<REPO_NAME>"}' -H "Authorization: <.ENV_SECRET_TOKEN>"
+```
+
+For example:
+
+```bash
+curl -X POST http://127.0.0.1:5000/list_commits -H "Content-Type: application/json" -d '{"repo": "GraphRAG-SDK"}' -H "Authorization: OpenSesame"
+```
+
+Response:
+```json
+{
+  "status": "success",
+  "commits": [
+    {
+      "hash": "abc123",
+      "date": 1234567890,
+      "author": "John Doe",
+      "message": "Initial commit"
+    }
+  ]
+}
+```
+
+Switch repository to a specific commit:
+
+```bash
+curl -X POST http://127.0.0.1:5000/switch_commit -H "Content-Type: application/json" -d '{"repo": "<REPO_NAME>", "commit": "<COMMIT_HASH>"}' -H "Authorization: <.ENV_SECRET_TOKEN>"
+```
+
+For example:
+
+```bash
+curl -X POST http://127.0.0.1:5000/switch_commit -H "Content-Type: application/json" -d '{"repo": "GraphRAG-SDK", "commit": "abc123"}' -H "Authorization: OpenSesame"
+```
+
+Response:
+```json
+{
+  "status": "success"
+}
+```
+
 ## Working with your graph
 
 Once the source code analysis completes your FalkorDB DB will be populated with
