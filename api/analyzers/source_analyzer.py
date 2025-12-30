@@ -9,6 +9,7 @@ from ..graph import Graph
 from .analyzer import AbstractAnalyzer
 # from .c.analyzer import CAnalyzer
 from .java.analyzer import JavaAnalyzer
+from .kotlin.analyzer import KotlinAnalyzer
 from .python.analyzer import PythonAnalyzer
 
 from multilspy import SyncLanguageServer
@@ -24,7 +25,9 @@ analyzers: dict[str, AbstractAnalyzer] = {
     # '.c': CAnalyzer(),
     # '.h': CAnalyzer(),
     '.py': PythonAnalyzer(),
-    '.java': JavaAnalyzer()}
+    '.java': JavaAnalyzer(),
+    '.kt': KotlinAnalyzer(),
+    '.kts': KotlinAnalyzer()}
 
 class NullLanguageServer:
     def start_server(self):
@@ -136,7 +139,14 @@ class SourceAnalyzer():
             lsps[".py"] = SyncLanguageServer.create(config, logger, str(path))
         else:
             lsps[".py"] = NullLanguageServer()
-        with lsps[".java"].start_server(), lsps[".py"].start_server():
+        if any(path.rglob('*.kt')) or any(path.rglob('*.kts')):
+            # For now, use NullLanguageServer for Kotlin as we need to set up kotlin-language-server
+            lsps[".kt"] = NullLanguageServer()
+            lsps[".kts"] = NullLanguageServer()
+        else:
+            lsps[".kt"] = NullLanguageServer()
+            lsps[".kts"] = NullLanguageServer()
+        with lsps[".java"].start_server(), lsps[".py"].start_server(), lsps[".kt"].start_server(), lsps[".kts"].start_server():
             files_len = len(self.files)
             for i, file_path in enumerate(files):
                 file = self.files[file_path]
@@ -163,7 +173,7 @@ class SourceAnalyzer():
         self.second_pass(graph, files, path)
 
     def analyze_sources(self, path: Path, ignore: list[str], graph: Graph) -> None:
-        files = list(path.rglob("*.java")) + list(path.rglob("*.py"))
+        files = list(path.rglob("*.java")) + list(path.rglob("*.py")) + list(path.rglob("*.kt")) + list(path.rglob("*.kts"))
         # First pass analysis of the source code
         self.first_pass(path, files, ignore, graph)
 

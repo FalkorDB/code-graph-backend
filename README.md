@@ -48,7 +48,7 @@ a graph representation of your source code, the graph name should be the same as
 the name of the folder you've requested to analyze, for the example above a graph named:
 "GraphRAG-SDK".
 
-At the moment only the Python and C languages are supported, we do intend to support additional languages.
+Currently supported languages: Python, Java, and Kotlin. We intend to support additional languages in the future.
 
 At this point you can explore and query your source code using various tools
 Here are several options:
