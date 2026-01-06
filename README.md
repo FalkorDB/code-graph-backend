@@ -22,9 +22,17 @@ docker run -p 6379:6379 -p 3000:3000 -it --rm falkordb/falkordb:latest
 
 Create your own `.env` file from the `.env.template` file
 
+### Install dependencies
+
+Install project dependencies:
+
+```bash
+uv sync
+```
+
 Start the server:
 ```bash
-flask --app api/index.py run --debug
+uv run flask --app api/index.py run --debug
 ```
 
 ### Creating a graph
