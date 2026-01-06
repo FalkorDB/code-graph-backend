@@ -26,5 +26,5 @@ test = [
     "pytest>=9.0.2,<10.0.0",
 ]
 
-[tool.setuptools]
-packages = []
+[tool.setuptools.packages.find]
+where = ["."]
