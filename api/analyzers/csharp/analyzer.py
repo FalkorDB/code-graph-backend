@@ -26,7 +26,7 @@ class CSharpAnalyzer(AbstractAnalyzer):
     def add_dependencies(self, path: Path, files: list[Path]):
         if Path(f"{path}/temp_deps_cs").is_dir():
             return
-        if Path(f"{path}").glob("*.csproj") or Path(f"{path}").glob("*.sln"):
+        if any(Path(f"{path}").glob("*.csproj")) or any(Path(f"{path}").glob("*.sln")):
             subprocess.run(["dotnet", "restore"], cwd=str(path))
 
     def get_entity_label(self, node: Node) -> str:
@@ -47,7 +47,10 @@ class CSharpAnalyzer(AbstractAnalyzer):
     def get_entity_name(self, node: Node) -> str:
         if node.type in ['class_declaration', 'interface_declaration', 'enum_declaration',
                          'struct_declaration', 'method_declaration', 'constructor_declaration']:
-            return node.child_by_field_name('name').text.decode('utf-8')
+            name_node = node.child_by_field_name('name')
+            if name_node is None:
+                return ''
+            return name_node.text.decode('utf-8')
         raise ValueError(f"Unknown entity type: {node.type}")
 
     def get_entity_docstring(self, node: Node) -> Optional[str]:
@@ -114,10 +117,6 @@ class CSharpAnalyzer(AbstractAnalyzer):
             func_node = node.child_by_field_name('function')
             if func_node and func_node.type == 'member_access_expression':
                 func_node = func_node.child_by_field_name('name')
-            elif func_node and func_node.type == 'identifier':
-                pass
-            else:
-                func_node = node.child_by_field_name('function')
             if func_node:
                 node = func_node
         for file, resolved_node in self.resolve(files, lsp, file_path, path, node):
@@ -128,7 +127,7 @@ class CSharpAnalyzer(AbstractAnalyzer):
                 res.append(file.entities[method_dec])
         return res
 
-    def resolve_symbol(self, files: dict[Path, File], lsp: SyncLanguageServer, file_path: Path, path: Path, key: str, symbol: Node) -> Entity:
+    def resolve_symbol(self, files: dict[Path, File], lsp: SyncLanguageServer, file_path: Path, path: Path, key: str, symbol: Node) -> list[Entity]:
         if key in ["implement_interface", "base_class", "extend_interface", "parameters", "return_type"]:
             return self.resolve_type(files, lsp, file_path, path, symbol)
         elif key in ["call"]:
