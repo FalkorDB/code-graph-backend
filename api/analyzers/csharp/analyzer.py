@@ -1,9 +1,9 @@
-import os
 import subprocess
 from pathlib import Path
 
 from multilspy import SyncLanguageServer
-from ...entities import *
+from ...entities.entity import Entity
+from ...entities.file import File
 from typing import Optional
 from ..analyzer import AbstractAnalyzer
 

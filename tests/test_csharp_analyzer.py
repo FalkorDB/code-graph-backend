@@ -1,6 +1,5 @@
 import os
 import unittest
-from pathlib import Path
 
 from api import SourceAnalyzer, Graph
 
