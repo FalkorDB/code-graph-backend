@@ -56,9 +56,14 @@ class CSharpAnalyzer(AbstractAnalyzer):
     def get_entity_docstring(self, node: Node) -> Optional[str]:
         if node.type in ['class_declaration', 'interface_declaration', 'enum_declaration',
                          'struct_declaration', 'method_declaration', 'constructor_declaration']:
-            if node.prev_sibling and node.prev_sibling.type == "comment":
-                return node.prev_sibling.text.decode('utf-8')
-            return None
+            # Walk back through contiguous comment siblings to collect
+            # multi-line XML doc comments (each /// line is a separate node)
+            lines = []
+            sibling = node.prev_sibling
+            while sibling and sibling.type == "comment":
+                lines.insert(0, sibling.text.decode('utf-8'))
+                sibling = sibling.prev_sibling
+            return '\n'.join(lines) if lines else None
         raise ValueError(f"Unknown entity type: {node.type}")
 
     def get_entity_types(self) -> list[str]:
@@ -72,8 +77,11 @@ class CSharpAnalyzer(AbstractAnalyzer):
                 first = True
                 for base_type in base_list_captures['base_type']:
                     if first and entity.node.type == 'class_declaration':
-                        # In C# the first item in base_list can be a base class or interface;
-                        # we treat it as base_class for classes (convention: base class listed first)
+                        # NOTE: Without semantic analysis, we cannot distinguish a base
+                        # class from an interface in C# base_list. By convention, the
+                        # base class is listed first; if a class only implements
+                        # interfaces, this will produce a spurious base_class edge that
+                        # the LSP resolution in second_pass can correct.
                         entity.add_symbol("base_class", base_type)
                         first = False
                     else:
