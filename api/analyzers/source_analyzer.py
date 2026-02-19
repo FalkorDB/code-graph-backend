@@ -10,6 +10,7 @@ from .analyzer import AbstractAnalyzer
 # from .c.analyzer import CAnalyzer
 from .java.analyzer import JavaAnalyzer
 from .python.analyzer import PythonAnalyzer
+from .csharp.analyzer import CSharpAnalyzer
 
 from multilspy import SyncLanguageServer
 from multilspy.multilspy_config import MultilspyConfig
@@ -24,7 +25,8 @@ analyzers: dict[str, AbstractAnalyzer] = {
     # '.c': CAnalyzer(),
     # '.h': CAnalyzer(),
     '.py': PythonAnalyzer(),
-    '.java': JavaAnalyzer()}
+    '.java': JavaAnalyzer(),
+    '.cs': CSharpAnalyzer()}
 
 class NullLanguageServer:
     def start_server(self):
@@ -136,7 +138,12 @@ class SourceAnalyzer():
             lsps[".py"] = SyncLanguageServer.create(config, logger, str(path))
         else:
             lsps[".py"] = NullLanguageServer()
-        with lsps[".java"].start_server(), lsps[".py"].start_server():
+        if any(path.rglob('*.cs')):
+            config = MultilspyConfig.from_dict({"code_language": "csharp"})
+            lsps[".cs"] = SyncLanguageServer.create(config, logger, str(path))
+        else:
+            lsps[".cs"] = NullLanguageServer()
+        with lsps[".java"].start_server(), lsps[".py"].start_server(), lsps[".cs"].start_server():
             files_len = len(self.files)
             for i, file_path in enumerate(files):
                 file = self.files[file_path]
@@ -166,7 +173,8 @@ class SourceAnalyzer():
         self.second_pass(graph, files, path)
 
     def analyze_sources(self, path: Path, ignore: list[str], graph: Graph) -> None:
-        files = list(path.rglob("*.java")) + list(path.rglob("*.py"))
+        path = path.resolve()
+        files = list(path.rglob("*.java")) + list(path.rglob("*.py")) + list(path.rglob("*.cs"))
         # First pass analysis of the source code
         self.first_pass(path, files, ignore, graph)
 
