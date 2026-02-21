@@ -1,19 +1,21 @@
+""" Main API module for CodeGraph. """
 import os
-import datetime
-from api import *
 from pathlib import Path
-from typing import Optional
 from functools import wraps
-from falkordb import FalkorDB
 from dotenv import load_dotenv
-from urllib.parse import urlparse
+from flask import Flask, request, jsonify
+
+from api.analyzers.source_analyzer import SourceAnalyzer
+from api.git_utils import git_utils
+from api.git_utils.git_graph import GitGraph
+from api.graph import Graph, get_repos, graph_exists
+from api.info import get_repo_info
+from api.llm import ask
+from api.project import Project
 from .auto_complete import prefix_search
-from flask import Flask, request, jsonify, abort
 
 # Load environment variables from .env file
 load_dotenv()
-
-app = Flask(__name__)
 
 # Configure the logger
 import logging
@@ -21,17 +23,29 @@ logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Function to verify the token
 SECRET_TOKEN = os.getenv('SECRET_TOKEN')
 def verify_token(token):
-    return token == SECRET_TOKEN
+    """ Verify the token provided in the request """
+    return token == SECRET_TOKEN or (token is None and SECRET_TOKEN is None)
 
-# Decorator to protect routes with token authentication
 def token_required(f):
+    """ Decorator to protect routes with token authentication """
     @wraps(f)
     def decorated_function(*args, **kwargs):
         token = request.headers.get('Authorization')  # Get token from header
-        if not token or not verify_token(token):
+        if not verify_token(token):
+            return jsonify(message="Unauthorized"), 401
+        return f(*args, **kwargs)
+    return decorated_function
+
+app = Flask(__name__)
+
+def public_access(f):
+    """ Decorator to protect routes with public access """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        public = os.environ.get("CODE_GRAPH_PUBLIC", "0")  # Get public access setting
+        if public != "1":
             return jsonify(message="Unauthorized"), 401
         return f(*args, **kwargs)
     return decorated_function
@@ -57,17 +71,17 @@ def graph_entities():
         return jsonify({"status": "Missing 'repo' parameter"}), 400
 
     if not graph_exists(repo):
-        logging.error(f"Missing project {repo}")
+        logging.error("Missing project %s", repo)
         return jsonify({"status": f"Missing project {repo}"}), 400
 
     try:
         # Initialize the graph with the provided repo and credentials
         g = Graph(repo)
 
-        # Retrieve a sub-graph of up to 100 entities
-        sub_graph = g.get_sub_graph(100)
+        # Retrieve a sub-graph of up to 500 entities
+        sub_graph = g.get_sub_graph(500)
 
-        logging.info(f"Successfully retrieved sub-graph for repo: {repo}")
+        logging.info("Successfully retrieved sub-graph for repo: %s", repo)
         response = {
             'status': 'success',
             'entities': sub_graph
@@ -76,7 +90,7 @@ def graph_entities():
         return jsonify(response), 200
 
     except Exception as e:
-        logging.error(f"Error retrieving sub-graph for repo '{repo}': {e}")
+        logging.error("Error retrieving sub-graph for repo '%s': %s", repo, e)
         return jsonify({"status": "Internal server error"}), 500
 
 
@@ -110,7 +124,7 @@ def get_neighbors():
 
     # Validate repo exists
     if not graph_exists(repo):
-        logging.error(f"Missing project {repo}")
+        logging.error("Missing project %s", repo)
         return jsonify({"status": f"Missing project {repo}"}), 400
 
     # Initialize the graph with the provided repository
@@ -120,7 +134,7 @@ def get_neighbors():
     neighbors = g.get_neighbors(node_ids)
 
     # Log and return the neighbors
-    logging.info(f"Successfully retrieved neighbors for node IDs {node_ids} in repo '{repo}'.")
+    logging.info("Successfully retrieved neighbors for node IDs %s in repo '%s'.", node_ids, repo)
 
     response = {
         'status': 'success',
@@ -145,12 +159,12 @@ def auto_complete():
     # Validate that 'repo' is provided
     repo = data.get('repo')
     if repo is None:
-        return jsonify({'status': f'Missing mandatory parameter "repo"'}), 400
+        return jsonify({'status': 'Missing mandatory parameter "repo"'}), 400
 
     # Validate that 'prefix' is provided
     prefix = data.get('prefix')
     if prefix is None:
-        return jsonify({'status': f'Missing mandatory parameter "prefix"'}), 400
+        return jsonify({'status': 'Missing mandatory parameter "prefix"'}), 400
 
     # Validate repo exists
     if not graph_exists(repo):
@@ -211,7 +225,7 @@ def repo_info():
     # Validate the 'repo' parameter
     repo = data.get('repo')
     if repo is None:
-        return jsonify({'status': f'Missing mandatory parameter "repo"'}), 400
+        return jsonify({'status': 'Missing mandatory parameter "repo"'}), 400
 
     # Initialize the graph with the provided repository name
     g = Graph(repo)
@@ -223,7 +237,7 @@ def repo_info():
     if stats is None or info is None:
         return jsonify({'status': f'Missing repository "{repo}"'}), 400
 
-    stats |= info 
+    stats |= info
 
     # Create a response
     response = {
@@ -257,24 +271,24 @@ def find_paths():
     # Validate 'repo' parameter
     repo = data.get('repo')
     if repo is None:
-        return jsonify({'status': f'Missing mandatory parameter "repo"'}), 400
+        return jsonify({'status': 'Missing mandatory parameter "repo"'}), 400
 
     # Validate 'src' parameter
     src = data.get('src')
     if src is None:
-        return jsonify({'status': f'Missing mandatory parameter "src"'}), 400
+        return jsonify({'status': 'Missing mandatory parameter "src"'}), 400
     if not isinstance(src, int):
         return jsonify({'status': "src node id must be int"}), 400
 
     # Validate 'dest' parameter
     dest = data.get('dest')
     if dest is None:
-        return jsonify({'status': f'Missing mandatory parameter "dest"'}), 400
+        return jsonify({'status': 'Missing mandatory parameter "dest"'}), 400
     if not isinstance(dest, int):
         return jsonify({'status': "dest node id must be int"}), 400
 
     if not graph_exists(repo):
-        logging.error(f"Missing project {repo}")
+        logging.error("Missing project %s", repo)
         return jsonify({"status": f"Missing project {repo}"}), 400
 
     # Initialize graph with provided repo and credentials
@@ -291,18 +305,20 @@ def find_paths():
 @app.route('/chat', methods=['POST'])
 @token_required  # Apply token authentication decorator
 def chat():
+    """ Endpoint to chat with the CodeGraph language model. """
+
     # Get JSON data from the request
     data = request.get_json()
 
     # Validate 'repo' parameter
     repo = data.get('repo')
     if repo is None:
-        return jsonify({'status': f'Missing mandatory parameter "repo"'}), 400
+        return jsonify({'status': 'Missing mandatory parameter "repo"'}), 400
 
     # Get optional 'label' and 'relation' parameters
     msg = data.get('msg')
     if msg is None:
-        return jsonify({'status': f'Missing mandatory parameter "msg"'}), 400
+        return jsonify({'status': 'Missing mandatory parameter "msg"'}), 400
 
     answer = ask(repo, msg)
 
@@ -340,7 +356,7 @@ def analyze_folder():
 
     # Validate path exists and is a directory
     if not os.path.isdir(path):
-        logging.error(f"Path '{path}' does not exist or is not a directory")
+        logging.error("Path '%s' does not exist or is not a directory", path)
         return jsonify({"status": "Invalid path: must be an existing directory"}), 400
 
     # Validate ignore list contains valid paths
@@ -364,3 +380,110 @@ def analyze_folder():
         }
     return jsonify(response), 200
 
+@app.route('/analyze_repo', methods=['POST'])
+@public_access  # Apply public access decorator
+@token_required  # Apply token authentication decorator
+def analyze_repo():
+    """
+    Analyze a GitHub repository.
+
+    Expected JSON payload:
+    {
+        "repo_url": "string",
+        "ignore": ["string"]  # optional
+    }
+
+    Returns:
+        JSON response with processing status
+    """
+
+    data = request.get_json()
+    url = data.get('repo_url')
+    if url is None:
+        return jsonify({'status': 'Missing mandatory parameter "url"'}), 400
+    logger.debug('Received repo_url: %s', url)
+
+    ignore = data.get('ignore', [])
+
+    proj = Project.from_git_repository(url)
+    proj.analyze_sources(ignore)
+    proj.process_git_history(ignore)
+
+    # Create a response
+    response = {
+        'status': 'success',
+    }
+
+    return jsonify(response), 200
+
+@app.route('/switch_commit', methods=['POST'])
+@public_access  # Apply public access decorator
+@token_required  # Apply token authentication decorator
+def switch_commit():
+    """
+    Endpoint to switch a repository to a specific commit.
+
+    Returns:
+        JSON response with the change set or an error message.
+    """
+
+    # Get JSON data from the request
+    data = request.get_json()
+
+    # Validate that 'repo' is provided
+    repo = data.get('repo')
+    if repo is None:
+        return jsonify({'status': 'Missing mandatory parameter "repo"'}), 400
+
+    # Validate that 'commit' is provided
+    commit = data.get('commit')
+    if commit is None:
+        return jsonify({'status': 'Missing mandatory parameter "commit"'}), 400
+
+    # Attempt to switch the repository to the specified commit
+    git_utils.switch_commit(repo, commit)
+
+    # Create a success response
+    response = {
+        'status': 'success'
+    }
+
+    return jsonify(response), 200
+
+@app.route('/list_commits', methods=['POST'])
+@public_access  # Apply public access decorator
+@token_required  # Apply token authentication decorator
+def list_commits():
+    """
+    Endpoint to list all commits of a specified repository.
+
+    Request JSON Structure:
+    {
+        "repo": "repository_name"
+    }
+
+    Returns:
+        JSON response with a list of commits or an error message.
+    """
+
+    # Get JSON data from the request
+    data = request.get_json()
+
+    # Validate the presence of the 'repo' parameter
+    repo = data.get('repo')
+    if repo is None:
+        return jsonify({'status': f'Missing mandatory parameter "repo"'}), 400
+
+    # Initialize GitGraph object to interact with the repository
+    git_graph = GitGraph(git_utils.GitRepoName(repo))
+
+    # Fetch commits from the repository
+    commits = git_graph.list_commits()
+
+    # Return success response with the list of commits
+    response = {
+        'status': 'success',
+        'commits': commits
+    }
+
+    return jsonify(response), 200

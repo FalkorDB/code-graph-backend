@@ -4,4 +4,4 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "daily"
-    target-branch: "staging"      
+    target-branch: "staging"

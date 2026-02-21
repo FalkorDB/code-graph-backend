@@ -21,7 +21,7 @@ class Test_PY_Analyzer(unittest.TestCase):
         path = str(path)
 
         g = Graph("py")
-        analyzer.analyze(path, g)
+        analyzer.analyze_local_folder(path, g)
 
         f = g.get_file('', 'src.py', '.py')
         self.assertEqual(File('', 'src.py', '.py'), f)
