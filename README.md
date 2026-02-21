@@ -22,9 +22,17 @@ docker run -p 6379:6379 -p 3000:3000 -it --rm falkordb/falkordb:latest
 
 Create your own `.env` file from the `.env.template` file
 
+### Install dependencies
+
+Install project dependencies:
+
+```bash
+uv sync
+```
+
 Start the server:
 ```bash
-flask --app api/index.py run --debug
+uv run flask --app api/index.py run --debug
 ```
 
 ### Creating a graph
@@ -48,7 +56,7 @@ a graph representation of your source code, the graph name should be the same as
 the name of the folder you've requested to analyze, for the example above a graph named:
 "GraphRAG-SDK".
 
-At the moment only the Python and C languages are supported, we do intend to support additional languages.
+At the moment Python, Java, and C# languages are supported, we do intend to support additional languages.
 
 At this point you can explore and query your source code using various tools
 Here are several options:
